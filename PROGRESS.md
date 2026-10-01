@@ -9,7 +9,7 @@
 | 2 | Menu, Floor, Orders, Kitchen Tickets | Completed | Category/item/variant/modifier hierarchy, channel pricing, floor layouts, table state machine with optimistic locking, move/merge tables, station KOT routing, void rules |
 | 3 | Core Engine (C++17): Pricing, Tax, Splits, Kitchen Routing | Completed | High-performance C++17 stateless JSON worker engine, 10 core ops implemented, worker process pool with auto-restart, comprehensive C++ unit test runner and API integration tests |
 | 4 | Billing, Invoices, Payments, Shifts, Day Close | Completed | Consecutive invoice series (T1/YY-YY/00001) under row lock, credit notes with folio charge reversal, idempotent split-tender payments, shifts with denomination reconciliation, and Z-report day close |
-| 5 | Kitchen Display System (KDS), POS Screens, Realtime SSE | Pending | Station queues, bump/recall, POS touch cart, live sync |
+| 5 | Kitchen Display System (KDS), POS Screens, Realtime SSE | Completed | Station queues (Tandoor, Curry, Bar, Expediter), bump item/ticket with auto KOT completion, recall window, course firing (hold/fire), realtime pub/sub bus, kitchen prep analytics |
 | 6 | Inventory, Recipes, Purchasing & Payables | Pending | Stock ledger, FIFO/weighted-avg cost, recipe explosion, 3-way match |
 | 7 | Staff, Attendance, Payroll | Pending | Roster, PIN clock in/out, salary structures, statutory deduction tables |
 | 8 | Double-Entry Accounting Ledger, Reports, System Alerts | Pending | Chart of accounts, journal posting, flash P&L, balance sheet, alert outbox |
