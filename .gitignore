@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+vendor/cache/
+
+# Build artifacts
+dist/
+build/
+bin/
+*.exe
+*.o
+*.obj
+*.pdb
+*.ilk
+
+# Environment & local files
+.env
+.env.local
+*.log
+scratch/
+.system_generated/
+_archive_old/
