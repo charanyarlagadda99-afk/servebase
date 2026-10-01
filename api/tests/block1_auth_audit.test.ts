@@ -10,6 +10,8 @@ import {
 } from '../src/services/auth.js';
 import { recordAudit, verifyAuditChain, computeAuditHash } from '../src/services/audit.js';
 
+import { truncateAll } from '../src/db/clean.js';
+
 describe('Block 1: Database, Auth, Permissions & Tamper-Evident Audit Log', () => {
   let orgId: string;
   let brandId: string;
@@ -21,16 +23,7 @@ describe('Block 1: Database, Auth, Permissions & Tamper-Evident Audit Log', () =
 
   beforeAll(async () => {
     await runMigrations();
-
-    // Clean up test data
-    await query(`DELETE FROM audit_logs`);
-    await query(`DELETE FROM approvals`);
-    await query(`DELETE FROM user_outlet_roles`);
-    await query(`DELETE FROM users`);
-    await query(`DELETE FROM roles`);
-    await query(`DELETE FROM outlets`);
-    await query(`DELETE FROM brands`);
-    await query(`DELETE FROM organizations`);
+    await truncateAll();
 
     // Setup hierarchy
     const orgRes = await query(`INSERT INTO organizations (name) VALUES ('Acme Dining Group') RETURNING id`);

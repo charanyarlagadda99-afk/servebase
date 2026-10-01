@@ -6,8 +6,8 @@
 |---|---|---|---|
 | 0 | Environment & Toolchain Setup | Completed | Git 2.55, Node 24.19, G++ 16.2 (C++17), PostgreSQL 16.4 running on localhost:5432 with servebase database |
 | 1 | Setup & Monorepo, Database Migrations, Auth & RBAC, Audit Log | Completed | Complete schema migrated, SHA-256 linear hash-chain audit log with tamper detection, PIN & JWT auth, role permissions & approval workflows |
-| 2 | Menu, Floor, Orders, Kitchen Tickets | In Progress | Implementing floor plans, table state machines, menu hierarchy, order lifecycle, KOT generation and routing |
-| 3 | Core Engine (C++17): Pricing, Tax, Splits, Kitchen Routing | Pending | C++ engine stateless JSON pipeline, rounding, 10 core ops |
+| 2 | Menu, Floor, Orders, Kitchen Tickets | Completed | Category/item/variant/modifier hierarchy, channel pricing, floor layouts, table state machine with optimistic locking, move/merge tables, station KOT routing, void rules |
+| 3 | Core Engine (C++17): Pricing, Tax, Splits, Kitchen Routing | In Progress | Implementing C++17 stateless JSON worker pipeline and unit test runner |
 | 4 | Billing, Invoices, Payments, Shifts, Day Close | Pending | GST invoices, counter lock transactions, payment tenders, blind close, Z-report |
 | 5 | Kitchen Display System (KDS), POS Screens, Realtime SSE | Pending | Station queues, bump/recall, POS touch cart, live sync |
 | 6 | Inventory, Recipes, Purchasing & Payables | Pending | Stock ledger, FIFO/weighted-avg cost, recipe explosion, 3-way match |
