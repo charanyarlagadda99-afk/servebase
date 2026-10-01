@@ -8,7 +8,7 @@
 | 1 | Setup & Monorepo, Database Migrations, Auth & RBAC, Audit Log | Completed | Complete schema migrated, SHA-256 linear hash-chain audit log with tamper detection, PIN & JWT auth, role permissions & approval workflows |
 | 2 | Menu, Floor, Orders, Kitchen Tickets | Completed | Category/item/variant/modifier hierarchy, channel pricing, floor layouts, table state machine with optimistic locking, move/merge tables, station KOT routing, void rules |
 | 3 | Core Engine (C++17): Pricing, Tax, Splits, Kitchen Routing | Completed | High-performance C++17 stateless JSON worker engine, 10 core ops implemented, worker process pool with auto-restart, comprehensive C++ unit test runner and API integration tests |
-| 4 | Billing, Invoices, Payments, Shifts, Day Close | In Progress | Implementing GST invoices, consecutive numbering with counter row lock, split payments, idempotency keys, shifts, blind close, Z-report |
+| 4 | Billing, Invoices, Payments, Shifts, Day Close | Completed | Consecutive invoice series (T1/YY-YY/00001) under row lock, credit notes with folio charge reversal, idempotent split-tender payments, shifts with denomination reconciliation, and Z-report day close |
 | 5 | Kitchen Display System (KDS), POS Screens, Realtime SSE | Pending | Station queues, bump/recall, POS touch cart, live sync |
 | 6 | Inventory, Recipes, Purchasing & Payables | Pending | Stock ledger, FIFO/weighted-avg cost, recipe explosion, 3-way match |
 | 7 | Staff, Attendance, Payroll | Pending | Roster, PIN clock in/out, salary structures, statutory deduction tables |

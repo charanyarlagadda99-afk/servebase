@@ -53,10 +53,15 @@ export function computeAuditHash(
   return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
 }
 
-export async function recordAudit(entry: AuditEntryInput): Promise<{ id: string; entry_hash: string }> {
-  const client = await pool.connect();
+export async function recordAudit(
+  entry: AuditEntryInput,
+  existingClient?: any
+): Promise<{ id: string; entry_hash: string }> {
+  const client = existingClient || (await pool.connect());
+  const shouldManageTx = !existingClient;
+
   try {
-    await client.query('BEGIN');
+    if (shouldManageTx) await client.query('BEGIN');
 
     // Lock the most recent audit entry row for this outlet to guarantee linear serial chain
     const lastRes = await client.query(
@@ -109,13 +114,13 @@ export async function recordAudit(entry: AuditEntryInput): Promise<{ id: string;
       ]
     );
 
-    await client.query('COMMIT');
+    if (shouldManageTx) await client.query('COMMIT');
     return insertRes.rows[0];
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (shouldManageTx) await client.query('ROLLBACK');
     throw err;
   } finally {
-    client.release();
+    if (shouldManageTx) client.release();
   }
 }
 

@@ -128,7 +128,7 @@ export async function seatGuests(
       entity_id: tableId,
       before_state: { status: table.status, covers: table.current_covers, version: table.version },
       after_state: { status: 'occupied', covers, waiterId, version: updatedRes.rows[0].version },
-    });
+    }, client);
 
     return updatedRes.rows[0];
   });
@@ -206,7 +206,7 @@ export async function moveTable(
       entity_id: targetTableId,
       before_state: { sourceTable: src.table_number, targetTable: tgt.table_number, orderId: src.active_order_id },
       after_state: { sourceStatus: 'available', targetStatus: 'occupied' },
-    });
+    }, client);
 
     return { source: updatedSource.rows[0], target: updatedTarget.rows[0] };
   });
@@ -274,7 +274,7 @@ export async function mergeTables(
         retainedOrderId: primary.active_order_id,
         mergedCovers: totalCovers,
       },
-    });
+    }, client);
 
     return { primary: updatedPrimary.rows[0], secondary: updatedSecondary.rows[0] };
   });
