@@ -88,14 +88,24 @@ lucid-euclid/
 - **Node.js**: Version 20+ (LTS)
 - **C++ Compiler**: GCC / MinGW with C++17 support
 
-### 1. Build Native C++ Core Engine
+### Live Public Deployment
+- **Live Cloud Web Interface**: [https://web-rho-nine-toizqjrice.vercel.app](https://web-rho-nine-toizqjrice.vercel.app)
+- **Deployment Status**: Production (Public access, SSO protection disabled)
+
+### 1. Environment Configuration
+```bash
+cp .env.example .env
+# Update DATABASE_URL or PORT if custom credentials are required
+```
+
+### 2. Build Native C++ Core Engine
 ```bash
 cd core
 make clean && make
-# Output generated at core/bin/servebase_core.exe
+# Output generated at core/bin/servebase_core.exe (or compile directly via g++)
 ```
 
-### 2. Configure Database & Start API Service
+### 3. Configure Database & Start API Service
 ```bash
 cd api
 npm install
@@ -104,17 +114,20 @@ npm install
 npm run db:init
 npm run db:seed
 
-# Run complete automated verification suite (76 tests across 11 suites)
+# Run complete automated verification suite (Vitest)
 npm test
 
 # Launch Fastify backend service (default port: 3000)
 npm run dev
 ```
 
-### 3. Build & Launch Web Touch Interface
+### 4. Build & Launch Web Touch Interface
 ```bash
 cd web
 npm install
+
+# Run automated headless Chrome E2E browser audit
+node tests/e2e_browser_audit.mjs
 
 # Build production bundle
 npm run build

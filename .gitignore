@@ -12,10 +12,18 @@ bin/
 *.pdb
 *.ilk
 
-# Environment & local files
+# Environment & local secret files
 .env
-.env.local
+.env.*
+!.env.example
 *.log
 scratch/
 .system_generated/
 _archive_old/
+
+# Local runtime & cloud provider files
+.vercel
+*.local
+*.sqlite
+*.sqlite3
+*.db
