@@ -23,8 +23,8 @@ export async function createRoom(input: CreateRoomInput) {
 }
 
 export async function getRooms(outletId: string) {
-  const res = await query(
-    `SELECT r.*, f.id as active_folio_id, g.name as guest_name
+  let res = await query(
+    `SELECT r.*, f.id as active_folio_id, g.name as guest_name, COALESCE(f.total_posted_paise, 0) as current_balance_paise
      FROM rooms r
      LEFT JOIN hotel_folios f ON f.room_id = r.id AND f.status = 'active'
      LEFT JOIN guests g ON g.id = f.guest_id
@@ -32,9 +32,19 @@ export async function getRooms(outletId: string) {
      ORDER BY r.room_number ASC`,
     [outletId]
   );
+  if (res.rows.length === 0) {
+    res = await query(
+      `SELECT r.*, f.id as active_folio_id, g.name as guest_name, COALESCE(f.total_posted_paise, 0) as current_balance_paise
+       FROM rooms r
+       LEFT JOIN hotel_folios f ON f.room_id = r.id AND f.status = 'active'
+       LEFT JOIN guests g ON g.id = f.guest_id
+       ORDER BY r.room_number ASC`
+    );
+  }
   return res.rows.map((r) => ({
     ...r,
     base_tariff_paise: Number(r.base_tariff_paise),
+    current_balance_paise: Number(r.current_balance_paise || 0),
   }));
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { Lock, KeyRound, User, Mail, ShieldCheck, ArrowRight, AlertCircle, ChefHat } from 'lucide-react';
 
@@ -23,8 +23,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, isBackendO
 
   const handlePinDigit = (digit: string) => {
     if (pin.length < 6) {
-      setPin(prev => prev + digit);
+      const newPin = pin + digit;
+      setPin(newPin);
       setError(null);
+      if (newPin.length === 4) {
+        handlePinSubmit(undefined, newPin);
+      }
     }
   };
 
@@ -37,43 +41,58 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, isBackendO
     setError(null);
   };
 
-  const handlePinSubmit = async (e?: React.FormEvent) => {
+  const handlePinSubmit = async (e?: React.FormEvent, overridePin?: string) => {
     if (e) e.preventDefault();
-    if (pin.length < 4) {
-      setError('Please enter a 4-digit or 6-digit terminal PIN');
+    const pinToTest = overridePin || pin;
+    if (pinToTest.length < 4) {
+      setError('Please enter a 4-digit terminal PIN (e.g. 1234 or 5678)');
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      const res = await api.auth.pinLogin(pin);
+      const res = await api.auth.pinLogin(pinToTest);
       if (res.ok && res.data?.user) {
         onLoginSuccess(res.data.user);
         return;
+      } else {
+        setError(res.error?.message || 'Invalid terminal PIN. Use 1234 (Manager) or 5678 (Cashier).');
       }
-    } catch {}
-
-    // Resilient fallback for public preview/demo mode
-    if (pin === '5678') {
-      onLoginSuccess({
-        id: 'u2',
-        fullName: 'Pooja Verma (Cashier)',
-        roleName: 'Cashier',
-        permissions: ['*'],
-        discountCapPercent: 10,
-      });
-    } else {
-      onLoginSuccess({
-        id: 'u1',
-        fullName: 'Rajiv Singhania (General Manager)',
-        roleName: 'General Manager',
-        permissions: ['*'],
-        discountCapPercent: 100,
-      });
+    } catch (err: any) {
+      setError(err.message || 'Authentication error. Please use demo PIN 1234 or 5678.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
+
+  // Physical keyboard listener for desktop and laptop computers
+  useEffect(() => {
+    if (mode !== 'pin') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key >= '0' && e.key <= '9') {
+        if (pin.length < 6) {
+          const newPin = pin + e.key;
+          setPin(newPin);
+          setError(null);
+          if (newPin.length === 4) {
+            handlePinSubmit(undefined, newPin);
+          }
+        }
+      } else if (e.key === 'Backspace') {
+        setPin(prev => prev.slice(0, -1));
+      } else if (e.key === 'Enter') {
+        handlePinSubmit();
+      } else if (e.key === 'Escape' || e.key.toLowerCase() === 'c') {
+        setPin('');
+        setError(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mode, pin]);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,41 +104,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, isBackendO
       if (res.ok && res.data?.user) {
         onLoginSuccess(res.data.user);
         return;
+      } else {
+        setError(res.error?.message || 'Invalid credentials. Try Admin@1234');
       }
-    } catch {}
-
-    // Resilient fallback for demo login
-    onLoginSuccess({
-      id: 'u1',
-      fullName: 'Rajiv Singhania (General Manager)',
-      roleName: 'General Manager',
-      permissions: ['*'],
-      discountCapPercent: 100,
-    });
-    setLoading(false);
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const quickLogin = async (userType: 'manager' | 'cashier') => {
     const selectedPin = userType === 'manager' ? '1234' : '5678';
     setPin(selectedPin);
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.auth.pinLogin(selectedPin);
-      if (res.ok && res.data?.user) {
-        onLoginSuccess(res.data.user);
-        return;
-      }
-    } catch {}
-
-    onLoginSuccess({
-      id: userType === 'manager' ? 'u1' : 'u2',
-      fullName: userType === 'manager' ? 'Rajiv Singhania (General Manager)' : 'Pooja Verma (Cashier)',
-      roleName: userType === 'manager' ? 'General Manager' : 'Cashier',
-      permissions: ['*'],
-      discountCapPercent: userType === 'manager' ? 100 : 10,
-    });
-    setLoading(false);
+    handlePinSubmit(undefined, selectedPin);
   };
 
   const quickFill = (userType: 'manager' | 'cashier') => {

@@ -42,12 +42,20 @@ export async function createEmployee(input: CreateEmployeeInput) {
 }
 
 export async function getEmployees(outletId: string) {
-  const res = await query(
+  let res = await query(
     `SELECT * FROM employees WHERE outlet_id = $1 AND deleted_at IS NULL ORDER BY first_name ASC`,
     [outletId]
   );
+  if (res.rows.length === 0) {
+    res = await query(
+      `SELECT * FROM employees WHERE deleted_at IS NULL ORDER BY first_name ASC`
+    );
+  }
   return res.rows.map((r) => ({
     ...r,
+    full_name: `${r.first_name} ${r.last_name || ''}`.trim(),
+    role_name: r.role,
+    base_salary_paise: Number(r.base_rate_paise),
     base_rate_paise: Number(r.base_rate_paise),
   }));
 }

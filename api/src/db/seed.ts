@@ -61,21 +61,29 @@ export async function runSeed(daysToGenerate = 90) {
 
   const pinHash1234 = await hashSecret('1234');
   const pinHash5678 = await hashSecret('5678');
+  const pinHash9999 = await hashSecret('9999');
+  const pwdHash = await hashSecret('Admin@1234');
 
   // Users
   const user1 = await query(
-    `INSERT INTO users (full_name, pin_hash, email) VALUES ('Rajiv Singhania', $1, 'rajiv@imperial.in') RETURNING id`,
-    [pinHash1234]
+    `INSERT INTO users (full_name, pin_hash, password_hash, email) VALUES ('Rajiv Singhania', $1, $2, 'manager@dawat.com') RETURNING id`,
+    [pinHash1234, pwdHash]
   );
   const user2 = await query(
-    `INSERT INTO users (full_name, pin_hash, email) VALUES ('Pooja Verma', $1, 'pooja@imperial.in') RETURNING id`,
-    [pinHash5678]
+    `INSERT INTO users (full_name, pin_hash, password_hash, email) VALUES ('Pooja Verma', $1, $2, 'cashier@dawat.com') RETURNING id`,
+    [pinHash5678, pwdHash]
+  );
+  const user3 = await query(
+    `INSERT INTO users (full_name, pin_hash, password_hash, email) VALUES ('Sanjeev Kapoor', $1, $2, 'chef@dawat.com') RETURNING id`,
+    [pinHash9999, pwdHash]
   );
   const gmUserId = user1.rows[0].id;
   const cashierUserId = user2.rows[0].id;
+  const chefUserId = user3.rows[0].id;
 
   await query(`INSERT INTO user_outlet_roles (user_id, outlet_id, role_id) VALUES ($1, $2, $3)`, [gmUserId, dawatOutletId, roleMgr.rows[0].id]);
   await query(`INSERT INTO user_outlet_roles (user_id, outlet_id, role_id) VALUES ($1, $2, $3)`, [cashierUserId, dawatOutletId, roleCashier.rows[0].id]);
+  await query(`INSERT INTO user_outlet_roles (user_id, outlet_id, role_id) VALUES ($1, $2, $3)`, [chefUserId, dawatOutletId, roleChef.rows[0].id]);
 
   // Terminals
   const term1 = await query(
@@ -89,18 +97,42 @@ export async function runSeed(daysToGenerate = 90) {
   const stTandoor = await query(`INSERT INTO kitchen_stations (outlet_id, name, station_code) VALUES ($1, 'Tandoor & Kebab', 'TAND') RETURNING id`, [dawatOutletId]);
   const stCurry = await query(`INSERT INTO kitchen_stations (outlet_id, name, station_code) VALUES ($1, 'Curry & Gravy', 'CURR') RETURNING id`, [dawatOutletId]);
   const stBar = await query(`INSERT INTO kitchen_stations (outlet_id, name, station_code) VALUES ($1, 'Beverage Bar', 'BAR') RETURNING id`, [dawatOutletId]);
+  const stPantry = await query(`INSERT INTO kitchen_stations (outlet_id, name, station_code) VALUES ($1, 'Pantry & Cold', 'PAN') RETURNING id`, [dawatOutletId]);
+  const stDessert = await query(`INSERT INTO kitchen_stations (outlet_id, name, station_code) VALUES ($1, 'Desserts & Sweets', 'DES') RETURNING id`, [dawatOutletId]);
 
   // 5. Floor & Tables
   const areaHall = await createFloorArea(dawatOutletId, 'Main Royal Hall', 1);
   const areaTerrace = await createFloorArea(dawatOutletId, 'Terrace Courtyard', 2);
+  const areaBar = await createFloorArea(dawatOutletId, 'Bar & Lounge', 3);
 
-  const tables = [];
-  for (let i = 1; i <= 10; i++) {
+  const tables: any[] = [];
+  // Main Hall: T-1 to T-5
+  for (let i = 1; i <= 5; i++) {
     const t = await createTable({
       outlet_id: dawatOutletId,
       area_id: areaHall.id,
       table_number: `T-${i}`,
       capacity: i % 2 === 0 ? 4 : 2,
+    });
+    tables.push(t);
+  }
+  // Terrace Courtyard: T-6 to T-8
+  for (let i = 6; i <= 8; i++) {
+    const t = await createTable({
+      outlet_id: dawatOutletId,
+      area_id: areaTerrace.id,
+      table_number: `T-${i}`,
+      capacity: i === 6 ? 6 : 4,
+    });
+    tables.push(t);
+  }
+  // Bar & Lounge: B-1, B-2
+  for (let i = 1; i <= 2; i++) {
+    const t = await createTable({
+      outlet_id: dawatOutletId,
+      area_id: areaBar.id,
+      table_number: `B-${i}`,
+      capacity: 2,
     });
     tables.push(t);
   }
@@ -110,10 +142,12 @@ export async function runSeed(daysToGenerate = 90) {
   const uomL = await createUOM({ name: 'Litre', symbol: 'l' });
   const uomPcs = await createUOM({ name: 'Pieces', symbol: 'pcs' });
 
-  const matPaneer = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Malai Paneer', sku: 'RAW-PAN-01', uom_id: uomKg.id, current_cost_paise: 32000 });
-  const matChicken = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Chicken Boneless', sku: 'RAW-CHK-01', uom_id: uomKg.id, current_cost_paise: 26000 });
-  const matRice = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Basmati Rice', sku: 'RAW-RIC-01', uom_id: uomKg.id, current_cost_paise: 9500 });
-  const matButter = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Table Butter', sku: 'RAW-BUT-01', uom_id: uomKg.id, current_cost_paise: 44000 });
+  const matPaneer = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Malai Paneer', sku: 'RAW-PAN-01', uom_id: uomKg.id, current_cost_paise: 32000, par_level: 25, reorder_point: 15 });
+  const matChicken = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Chicken Boneless', sku: 'RAW-CHK-01', uom_id: uomKg.id, current_cost_paise: 26000, par_level: 30, reorder_point: 20 });
+  const matRice = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Basmati Rice', sku: 'RAW-RIC-01', uom_id: uomKg.id, current_cost_paise: 9500, par_level: 50, reorder_point: 30 });
+  const matButter = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Table Butter', sku: 'RAW-BUT-01', uom_id: uomKg.id, current_cost_paise: 44000, par_level: 20, reorder_point: 10 });
+  const matCream = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Fresh Cooking Cream', sku: 'RAW-CRM-01', uom_id: uomL.id, current_cost_paise: 21000, par_level: 15, reorder_point: 8 });
+  const matSpices = await createRawMaterial({ outlet_id: dawatOutletId, name: 'Shahi Garam Masala', sku: 'RAW-SPC-01', uom_id: uomKg.id, current_cost_paise: 85000, par_level: 10, reorder_point: 5 });
 
   // 7. Initial Stock Intake via Vendor GRN
   const vendor = await createVendor({ name: 'Heritage Farm Supplies', gstin: '07AAACH9911A1Z0' });
@@ -128,20 +162,48 @@ export async function runSeed(daysToGenerate = 90) {
       { raw_material_id: matChicken.id, po_qty: 600, received_qty: 600, unit_price_paise: 26000 },
       { raw_material_id: matRice.id, po_qty: 1000, received_qty: 1000, unit_price_paise: 9500 },
       { raw_material_id: matButter.id, po_qty: 300, received_qty: 300, unit_price_paise: 44000 },
+      { raw_material_id: matCream.id, po_qty: 200, received_qty: 200, unit_price_paise: 21000 },
+      { raw_material_id: matSpices.id, po_qty: 100, received_qty: 100, unit_price_paise: 85000 },
     ],
   });
 
   // 8. Menu Items & Recipes
   const catStarters = await createCategory(dawatOutletId, 'Starters', 1);
-  const catMains = await createCategory(dawatOutletId, 'Mains', 2);
-  const catBreads = await createCategory(dawatOutletId, 'Breads & Rice', 3);
+  const catMains = await createCategory(dawatOutletId, 'Main Curries', 2);
+  const catBreads = await createCategory(dawatOutletId, 'Biryani & Breads', 3);
+  const catDesserts = await createCategory(dawatOutletId, 'Desserts', 4);
+  const catBeverages = await createCategory(dawatOutletId, 'Beverages', 5);
 
   const dishTikka = await createMenuItem({
     outlet_id: dawatOutletId,
     category_id: catStarters.id,
     station_id: stTandoor.rows[0].id,
     name: 'Murgh Malai Tikka',
-    base_price_paise: 52000, // Rs 520
+    base_price_paise: 46000,
+  });
+
+  const dishPaneerTikka = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catStarters.id,
+    station_id: stTandoor.rows[0].id,
+    name: 'Paneer Tikka Angaarey',
+    base_price_paise: 38000,
+  });
+
+  const dishDahiKebab = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catStarters.id,
+    station_id: stPantry.rows[0].id,
+    name: 'Dahi Ke Kebab',
+    base_price_paise: 34000,
+  });
+
+  const dishSeekh = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catStarters.id,
+    station_id: stTandoor.rows[0].id,
+    name: 'Seekh Kebab Gilafi',
+    base_price_paise: 49000,
   });
 
   const dishPaneer = await createMenuItem({
@@ -149,15 +211,87 @@ export async function runSeed(daysToGenerate = 90) {
     category_id: catMains.id,
     station_id: stCurry.rows[0].id,
     name: 'Paneer Makhani',
-    base_price_paise: 44000, // Rs 440
+    base_price_paise: 44000,
+  });
+
+  const dishButterChicken = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catMains.id,
+    station_id: stCurry.rows[0].id,
+    name: 'Butter Chicken Grand Trunk',
+    base_price_paise: 54000,
+  });
+
+  const dishDalMakhani = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catMains.id,
+    station_id: stCurry.rows[0].id,
+    name: 'Dal Makhani Bukhara',
+    base_price_paise: 39000,
+  });
+
+  const dishPaneerLababdar = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catMains.id,
+    station_id: stCurry.rows[0].id,
+    name: 'Paneer Lababdar',
+    base_price_paise: 44000,
   });
 
   const dishBiryani = await createMenuItem({
     outlet_id: dawatOutletId,
     category_id: catBreads.id,
     station_id: stCurry.rows[0].id,
-    name: 'Dum Pukht Biryani',
-    base_price_paise: 58000, // Rs 580
+    name: 'Dum Biryani Awadhi',
+    base_price_paise: 48000,
+  });
+
+  const dishNaan = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catBreads.id,
+    station_id: stTandoor.rows[0].id,
+    name: 'Tandoori Garlic Butter Naan',
+    base_price_paise: 11000,
+  });
+
+  const dishRoti = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catBreads.id,
+    station_id: stTandoor.rows[0].id,
+    name: 'Roomali Roti',
+    base_price_paise: 8000,
+  });
+
+  const dishPhirni = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catDesserts.id,
+    station_id: stDessert.rows[0].id,
+    name: 'Kesari Phirni',
+    base_price_paise: 22000,
+  });
+
+  const dishJamun = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catDesserts.id,
+    station_id: stDessert.rows[0].id,
+    name: 'Gulab Jamun Shahi',
+    base_price_paise: 18000,
+  });
+
+  const dishChaas = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catBeverages.id,
+    station_id: stBar.rows[0].id,
+    name: 'Masala Chaas',
+    base_price_paise: 14000,
+  });
+
+  const dishLimeSoda = await createMenuItem({
+    outlet_id: dawatOutletId,
+    category_id: catBeverages.id,
+    station_id: stBar.rows[0].id,
+    name: 'Darjeeling Fresh Lime Soda',
+    base_price_paise: 16000,
   });
 
   // Recipes
@@ -209,33 +343,185 @@ export async function runSeed(daysToGenerate = 90) {
   }
 
   // Check in sample guests
-  const sampleGuest = await createGuest({
+  const sampleGuest1 = await createGuest({
     name: 'Maharaja Gaj Singh',
     phone: '+919829012345',
     email: 'gajsingh@heritage.in',
   });
-  await checkInGuest(hotelOutletId, hotelRooms[0].id, sampleGuest.id, 10000000);
+  await checkInGuest(hotelOutletId, hotelRooms[0].id, sampleGuest1.id, 10000000);
+
+  const sampleGuest2 = await createGuest({
+    name: 'Vikramaditya Roy',
+    phone: '+919876543210',
+    email: 'vikram@roy.com',
+  });
+  await checkInGuest(hotelOutletId, hotelRooms[1].id, sampleGuest2.id, 5000000);
+
+  const sampleGuest3 = await createGuest({
+    name: 'Dr. Farhan Qureshi',
+    phone: '+919811223344',
+    email: 'farhan@delhihealth.org',
+  });
+  await checkInGuest(hotelOutletId, hotelRooms[10].id, sampleGuest3.id, 15000000);
 
   // 10. Staff Employees
   await createEmployee({
     outlet_id: dawatOutletId,
     employee_code: 'EMP-DAW-001',
-    first_name: 'Imtiaz',
-    last_name: 'Qureshi',
-    role: 'head_chef',
+    first_name: 'Rajiv',
+    last_name: 'Singhania',
+    role: 'manager',
+    phone: '+91 98765 43210',
     salary_type: 'monthly',
-    base_rate_paise: 7500000, // Rs 75,000
+    base_rate_paise: 8500000,
   });
 
   await createEmployee({
     outlet_id: dawatOutletId,
     employee_code: 'EMP-DAW-002',
+    first_name: 'Pooja',
+    last_name: 'Verma',
+    role: 'cashier',
+    phone: '+91 98765 43211',
+    salary_type: 'monthly',
+    base_rate_paise: 3200000,
+  });
+
+  await createEmployee({
+    outlet_id: dawatOutletId,
+    employee_code: 'EMP-DAW-003',
+    first_name: 'Sanjeev',
+    last_name: 'Kapoor',
+    role: 'head_chef',
+    phone: '+91 98765 43212',
+    salary_type: 'monthly',
+    base_rate_paise: 7500000,
+  });
+
+  await createEmployee({
+    outlet_id: dawatOutletId,
+    employee_code: 'EMP-DAW-004',
     first_name: 'Vikram',
     last_name: 'Sethi',
     role: 'line_cook',
+    phone: '+91 98765 43213',
     salary_type: 'monthly',
-    base_rate_paise: 3500000, // Rs 35,000
+    base_rate_paise: 3500000,
   });
+
+  await createEmployee({
+    outlet_id: dawatOutletId,
+    employee_code: 'EMP-DAW-005',
+    first_name: 'Rahul',
+    last_name: 'Sharma',
+    role: 'waiter',
+    phone: '+91 98765 43214',
+    salary_type: 'monthly',
+    base_rate_paise: 2800000,
+  });
+
+  await createEmployee({
+    outlet_id: dawatOutletId,
+    employee_code: 'EMP-DAW-006',
+    first_name: 'Rohan',
+    last_name: 'Mehra',
+    role: 'bartender',
+    phone: '+91 98765 43215',
+    salary_type: 'monthly',
+    base_rate_paise: 3000000,
+  });
+
+  // 11. Active Operational Orders, Tables & Live KOTs
+  // Table T-2: Occupied
+  const activeOrd1 = await query(
+    `INSERT INTO orders (outlet_id, terminal_id, order_type, table_id, status, covers, business_date, created_by_user_id)
+     VALUES ($1, $2, 'dine_in', $3, 'occupied', 2, '2026-10-01', $4) RETURNING id`,
+    [dawatOutletId, terminal1Id, tables[1].id, gmUserId]
+  );
+  await query(`UPDATE tables SET status = 'occupied', active_order_id = $1, current_covers = 2 WHERE id = $2`, [activeOrd1.rows[0].id, tables[1].id]);
+
+  const ordItem1 = await query(
+    `INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price_paise, course, course_status, status, notes)
+     VALUES ($1, $2, 'Paneer Tikka Angaarey', 1, 38000, 'starter', 'fire', 'sent', 'Crispy charred') RETURNING id`,
+    [activeOrd1.rows[0].id, dishPaneerTikka.id]
+  );
+  const ordItem2 = await query(
+    `INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price_paise, course, course_status, status)
+     VALUES ($1, $2, 'Butter Chicken Grand Trunk', 1, 54000, 'main', 'hold', 'sent') RETURNING id`,
+    [activeOrd1.rows[0].id, dishButterChicken.id]
+  );
+
+  const activeKot1 = await query(
+    `INSERT INTO kots (outlet_id, order_id, station_id, kot_number, status, created_at)
+     VALUES ($1, $2, $3, 101, 'sent', NOW() - INTERVAL '12 minutes') RETURNING id`,
+    [dawatOutletId, activeOrd1.rows[0].id, stTandoor.rows[0].id]
+  );
+  await query(
+    `INSERT INTO kot_items (kot_id, order_item_id, quantity, status)
+     VALUES ($1, $2, 1, 'queued')`,
+    [activeKot1.rows[0].id, ordItem1.rows[0].id]
+  );
+
+  // Table T-4: Billed
+  const activeOrd2 = await query(
+    `INSERT INTO orders (outlet_id, terminal_id, order_type, table_id, status, covers, business_date, created_by_user_id)
+     VALUES ($1, $2, 'dine_in', $3, 'billed', 4, '2026-10-01', $4) RETURNING id`,
+    [dawatOutletId, terminal1Id, tables[3].id, cashierUserId]
+  );
+  await query(`UPDATE tables SET status = 'billed', active_order_id = $1, current_covers = 4 WHERE id = $2`, [activeOrd2.rows[0].id, tables[3].id]);
+
+  const ordItem3 = await query(
+    `INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price_paise, course, course_status, status)
+     VALUES ($1, $2, 'Dal Makhani Bukhara', 2, 39000, 'main', 'fire', 'sent') RETURNING id`,
+    [activeOrd2.rows[0].id, dishDalMakhani.id]
+  );
+  const activeKot2 = await query(
+    `INSERT INTO kots (outlet_id, order_id, station_id, kot_number, status, created_at)
+     VALUES ($1, $2, $3, 102, 'sent', NOW() - INTERVAL '6 minutes') RETURNING id`,
+    [dawatOutletId, activeOrd2.rows[0].id, stCurry.rows[0].id]
+  );
+  await query(
+    `INSERT INTO kot_items (kot_id, order_item_id, quantity, status)
+     VALUES ($1, $2, 2, 'preparing')`,
+    [activeKot2.rows[0].id, ordItem3.rows[0].id]
+  );
+
+  // Bar Table B-2: Occupied
+  const activeOrd3 = await query(
+    `INSERT INTO orders (outlet_id, terminal_id, order_type, table_id, status, covers, business_date, created_by_user_id)
+     VALUES ($1, $2, 'dine_in', $3, 'occupied', 2, '2026-10-01', $4) RETURNING id`,
+    [dawatOutletId, terminal1Id, tables[9].id, cashierUserId]
+  );
+  await query(`UPDATE tables SET status = 'occupied', active_order_id = $1, current_covers = 2 WHERE id = $2`, [activeOrd3.rows[0].id, tables[9].id]);
+
+  const ordItem4 = await query(
+    `INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price_paise, course, course_status, status, notes)
+     VALUES ($1, $2, 'Darjeeling Fresh Lime Soda', 2, 16000, 'beverage', 'fire', 'sent', 'Less sweet') RETURNING id`,
+    [activeOrd3.rows[0].id, dishLimeSoda.id]
+  );
+  const activeKot3 = await query(
+    `INSERT INTO kots (outlet_id, order_id, station_id, kot_number, status, created_at)
+     VALUES ($1, $2, $3, 103, 'sent', NOW() - INTERVAL '3 minutes') RETURNING id`,
+    [dawatOutletId, activeOrd3.rows[0].id, stBar.rows[0].id]
+  );
+  await query(
+    `INSERT INTO kot_items (kot_id, order_item_id, quantity, status)
+     VALUES ($1, $2, 2, 'ready')`,
+    [activeKot3.rows[0].id, ordItem4.rows[0].id]
+  );
+
+  // Table T-6: Reserved
+  await query(`UPDATE tables SET status = 'reserved', current_covers = 6 WHERE id = $1`, [tables[5].id]);
+
+  // System Alerts
+  await query(
+    `INSERT INTO system_alerts (outlet_id, alert_type, severity, message, is_read)
+     VALUES 
+     ($1, 'low_stock', 'warning', 'Fresh Malai Paneer stock is below reorder threshold (18 kg < 25 kg)', false),
+     ($1, 'approval_required', 'info', 'Table T-4 requested 20% bill discount. Approved by Rajiv Singhania.', false),
+     ($1, 'security_seal', 'info', 'Linear cryptographic ledger verified. 142 chained blocks intact.', false)`,
+    [dawatOutletId]
+  );
 
   console.log(`[SEED] Master data configured successfully. Generating ${daysToGenerate} days of operational activity...`);
 

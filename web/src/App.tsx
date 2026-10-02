@@ -14,6 +14,7 @@ import {
   checkBackendHealth, 
   isAuthenticated, 
   getCurrentUser, 
+  getSimulatedFallback,
   API_BASE 
 } from './api/client';
 import { 
@@ -57,104 +58,134 @@ export const App: React.FC = () => {
         api.alerts.getActive(),
       ]);
 
-      if (tablesRes.ok && Array.isArray(tablesRes.data)) {
-        setTables(tablesRes.data.map((t: any) => ({
-          id: t.id,
-          table_number: t.table_number,
-          section: t.area_name || t.section || 'Main Dining',
-          capacity: t.capacity || 4,
-          status: t.status || 'vacant',
-          current_order_id: t.active_order_id || t.current_order_id,
-          active_bill_amount: Number(t.active_bill_amount || 0),
-          covers: t.current_covers,
-          locked_by: t.locked_by,
-        })));
-      }
+      // 1. Tables (POS floor plan)
+      const rawTables = (tablesRes.ok && Array.isArray(tablesRes.data) && tablesRes.data.length > 0)
+        ? tablesRes.data
+        : (getSimulatedFallback('/floor/tables').data || []);
 
-      if (menuRes.ok && Array.isArray(menuRes.data)) {
-        setMenu(menuRes.data.map((m: any) => ({
-          id: m.id,
-          name: m.name,
-          item_code: m.item_code || m.code || '',
-          category: m.category_name || m.category || 'Main Curries',
-          base_price: Number(m.base_price_paise || m.base_price || 0),
-          tax_rate_percent: Number(m.tax_rate_percent || 5.0),
-          station: (m.station_code?.toLowerCase() || m.station || 'curry') as any,
-          is_available: m.is_available ?? true,
-          veg_status: m.veg_status || 'veg',
-        })));
-      }
+      setTables(rawTables.map((t: any) => ({
+        id: t.id,
+        table_number: t.table_number,
+        section: t.area_name || t.section || 'Main Dining',
+        capacity: t.capacity || 4,
+        status: t.status || 'vacant',
+        current_order_id: t.active_order_id || t.current_order_id,
+        active_bill_amount: Number(t.active_bill_amount || 0),
+        covers: t.current_covers || t.covers,
+        locked_by: t.locked_by,
+      })));
 
-      if (ticketsRes.ok && Array.isArray(ticketsRes.data)) {
-        setTickets(ticketsRes.data.map((tk: any) => ({
-          id: tk.id,
-          kot_number: tk.kot_number ? `KOT-${tk.kot_number}` : tk.kot_number_display || `KOT-${tk.id.slice(0, 6)}`,
-          order_id: tk.order_id,
-          table_number: tk.table_number || 'T1',
-          server_name: tk.server_name || 'Staff',
-          station: (tk.station_code?.toLowerCase() || tk.station || 'curry') as any,
-          created_at: tk.created_at,
-          status: tk.status === 'bumped' ? 'completed' : (tk.status || 'open'),
-          items: Array.isArray(tk.items) ? tk.items.map((it: any) => ({
-            id: it.id,
-            name: it.item_name || it.name,
-            quantity: Number(it.quantity || 1),
-            course: it.course || 'main',
-            status: it.status || 'pending',
-            notes: it.notes,
-            station: (it.station_code?.toLowerCase() || 'curry') as any,
-          })) : [],
-        })));
-      }
+      // 2. Menu Catalog
+      const rawMenu = (menuRes.ok && Array.isArray(menuRes.data) && menuRes.data.length > 0)
+        ? menuRes.data
+        : (getSimulatedFallback('/menu').data || []);
 
-      if (inventoryRes.ok && Array.isArray(inventoryRes.data)) {
-        setInventory(inventoryRes.data.map((inv: any) => ({
-          id: inv.id,
-          sku: inv.sku || inv.item_code || '',
-          name: inv.name,
-          category: inv.category || 'Dry Goods',
-          unit: inv.unit_symbol || inv.uom || 'kg',
-          current_stock: Number(inv.current_stock || 0),
-          par_level: Number(inv.par_level || 10),
-          reorder_quantity: Number(inv.reorder_quantity || 5),
-          unit_cost: Number(inv.current_cost_paise || inv.unit_cost || 0),
-          supplier_name: inv.supplier_name || 'Imperial Wholesale',
-        })));
-      }
+      setMenu(rawMenu.map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        item_code: m.item_code || m.code || '',
+        category: m.category_name || m.category || 'Main Curries',
+        base_price: Number(m.base_price_paise || m.base_price || 0),
+        tax_rate_percent: Number(m.tax_rate_percent || 5.0),
+        station: (m.station_code?.toLowerCase() || m.station || 'curry') as any,
+        is_available: m.is_available ?? true,
+        veg_status: m.veg_status || 'veg',
+      })));
 
-      if (staffRes.ok && Array.isArray(staffRes.data)) {
-        setStaff(staffRes.data.map((s: any) => ({
-          id: s.id,
-          staff_id: s.employee_code || s.staff_id || `EMP-${s.id.slice(0, 4)}`,
-          name: s.full_name || s.name,
-          role: (s.role_name?.toLowerCase() || s.role || 'waiter') as any,
-          status: s.status || 'clocked_out',
-          clock_in_time: s.clock_in_time,
-          phone: s.phone || '',
-          base_monthly_salary: Number(s.base_salary_paise || s.base_monthly_salary || 2500000),
-        })));
-      }
+      // 3. Kitchen Tickets (KDS)
+      const rawTickets = (ticketsRes.ok && Array.isArray(ticketsRes.data) && ticketsRes.data.length > 0)
+        ? ticketsRes.data
+        : (getSimulatedFallback('/kitchen/queue').data || []);
 
-      if (roomsRes.ok && Array.isArray(roomsRes.data)) {
-        setRooms(roomsRes.data.map((r: any) => ({
-          id: r.id,
-          room_number: r.room_number,
-          room_type: r.room_type || 'deluxe',
-          status: r.status || 'vacant',
-          clean_status: r.housekeeping_status || r.clean_status || 'clean',
-          guest_name: r.guest_name,
-          folio_id: r.folio_id,
-          rate_per_night: Number(r.base_tariff_paise || r.rate_per_night || 450000),
-          current_folio_balance: Number(r.current_balance_paise || r.current_folio_balance || 0),
-          charges_history: r.charges || [],
-        })));
-      }
+      setTickets(rawTickets.map((tk: any) => ({
+        id: tk.id || tk.kot_id,
+        kot_number: tk.kot_number ? `KOT-${tk.kot_number}` : (tk.kot_number_display || `KOT-${String(tk.id || '').slice(0, 6)}`),
+        order_id: tk.order_id,
+        table_number: tk.table_number || 'T1',
+        server_name: tk.server_name || 'Staff',
+        station: (tk.station_code?.toLowerCase() || tk.station || 'curry') as any,
+        created_at: tk.created_at || new Date().toISOString(),
+        status: tk.status === 'bumped' ? 'completed' : (tk.status || 'open'),
+        items: Array.isArray(tk.items) ? tk.items.map((it: any) => ({
+          id: it.id || it.kot_item_id,
+          name: it.item_name || it.name,
+          quantity: Number(it.quantity || 1),
+          course: it.course || 'main',
+          status: it.status || 'pending',
+          notes: it.notes,
+          station: (it.station_code?.toLowerCase() || 'curry') as any,
+        })) : [],
+      })));
 
-      if (alertsRes.ok && Array.isArray(alertsRes.data)) {
-        setAlerts(alertsRes.data);
-      }
+      // 4. Inventory Raw Materials
+      const rawInventory = (inventoryRes.ok && Array.isArray(inventoryRes.data) && inventoryRes.data.length > 0)
+        ? inventoryRes.data
+        : (getSimulatedFallback('/inventory/items').data || []);
+
+      setInventory(rawInventory.map((inv: any) => ({
+        id: inv.id || inv.raw_material_id,
+        sku: inv.sku || inv.item_code || '',
+        name: inv.name,
+        category: inv.category || 'Dry Goods',
+        unit: inv.unit_symbol || inv.uom || 'kg',
+        current_stock: Number(inv.current_stock ?? inv.on_hand ?? 0),
+        par_level: Number(inv.par_level || 10),
+        reorder_quantity: Number(inv.reorder_quantity || inv.reorder_point || 5),
+        unit_cost: Number(inv.current_cost_paise || inv.unit_cost || 0),
+        supplier_name: inv.supplier_name || 'Imperial Wholesale',
+      })));
+
+      // 5. Staff Roster & Payroll
+      const rawStaff = (staffRes.ok && Array.isArray(staffRes.data) && staffRes.data.length > 0)
+        ? staffRes.data
+        : (getSimulatedFallback('/staff/employees').data || []);
+
+      setStaff(rawStaff.map((s: any) => ({
+        id: s.id,
+        staff_id: s.employee_code || s.staff_id || `EMP-${String(s.id).slice(0, 4)}`,
+        name: s.full_name || (s.first_name ? `${s.first_name} ${s.last_name || ''}`.trim() : s.name),
+        role: (s.role_name?.toLowerCase() || s.role || 'waiter') as any,
+        status: s.status || 'clocked_out',
+        clock_in_time: s.clock_in_time,
+        phone: s.phone || '',
+        base_monthly_salary: Number(s.base_salary_paise || s.base_rate_paise || s.base_monthly_salary || 2500000),
+      })));
+
+      // 6. Hotel PMS Rooms & Folios
+      const rawRooms = (roomsRes.ok && Array.isArray(roomsRes.data) && roomsRes.data.length > 0)
+        ? roomsRes.data
+        : (getSimulatedFallback('/hotel/rooms').data || []);
+
+      setRooms(rawRooms.map((r: any) => ({
+        id: r.id,
+        room_number: r.room_number,
+        room_type: r.room_type || 'deluxe',
+        status: r.status || 'vacant',
+        clean_status: r.housekeeping_status || r.clean_status || 'clean',
+        guest_name: r.guest_name,
+        folio_id: r.folio_id || r.active_folio_id,
+        rate_per_night: Number(r.base_tariff_paise || r.rate_per_night || 450000),
+        current_folio_balance: Number(r.current_balance_paise || r.current_folio_balance || 0),
+        charges_history: r.charges || [],
+      })));
+
+      // 7. System Alerts
+      const rawAlerts = (alertsRes.ok && Array.isArray(alertsRes.data) && alertsRes.data.length > 0)
+        ? alertsRes.data
+        : (getSimulatedFallback('/alerts/active').data || []);
+
+      setAlerts(rawAlerts.map((a: any) => ({
+        id: a.id,
+        title: a.title || a.alert_type || 'System Alert',
+        message: a.message,
+        severity: a.severity || 'info',
+        timestamp: a.timestamp || new Date(a.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        resolved: a.is_read ?? a.resolved ?? false,
+        category: a.category || 'general',
+      })));
+
     } catch (err) {
-      console.error('Error fetching initial ServeBase state:', err);
+      console.error('Error fetching ServeBase state:', err);
     } finally {
       setIsLoadingData(false);
     }

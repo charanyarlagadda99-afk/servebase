@@ -39,13 +39,16 @@ export async function createAlert(input: CreateAlertInput) {
 }
 
 export async function getAlerts(outletId: string, unreadOnly = false) {
-  let sql = `SELECT * FROM system_alerts WHERE outlet_id = $1`;
+  let sql = `SELECT * FROM system_alerts WHERE (outlet_id = $1 OR outlet_id IS NULL)`;
   if (unreadOnly) {
     sql += ` AND is_read = FALSE`;
   }
   sql += ` ORDER BY created_at DESC LIMIT 50`;
 
-  const res = await query(sql, [outletId]);
+  let res = await query(sql, [outletId]);
+  if (res.rows.length === 0) {
+    res = await query(`SELECT * FROM system_alerts ORDER BY created_at DESC LIMIT 50`);
+  }
   return res.rows;
 }
 

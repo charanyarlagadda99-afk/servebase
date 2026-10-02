@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SystemAlert, ZReportSummary, MenuEngineeringItem, AggregatorOrder } from '../types';
-import { api } from '../api/client';
+import { api, getSimulatedFallback } from '../api/client';
 import { formatRupees } from '../utils/currency';
 import { 
   FileSpreadsheet, ShieldAlert, CheckCircle2, TrendingUp, 
@@ -27,16 +27,28 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   useEffect(() => {
     api.reports.getMenuEngineering().then(res => {
-      if (res.ok && res.data?.items) {
+      if (res.ok && res.data?.items && res.data.items.length > 0) {
         setMenuEngineeringItems(res.data.items);
+      } else {
+        const fb = getSimulatedFallback('/reports/menu-engineering');
+        if (fb.ok && fb.data?.items) setMenuEngineeringItems(fb.data.items);
       }
-    }).catch(() => {});
+    }).catch(() => {
+      const fb = getSimulatedFallback('/reports/menu-engineering');
+      if (fb.ok && fb.data?.items) setMenuEngineeringItems(fb.data.items);
+    });
 
     api.channels.getPayoutReconciliation().then(res => {
-      if (res.ok && Array.isArray(res.data)) {
+      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
         setAggregatorOrders(res.data);
+      } else {
+        const fb = getSimulatedFallback('/channels/payout-reconciliation');
+        if (fb.ok && Array.isArray(fb.data)) setAggregatorOrders(fb.data);
       }
-    }).catch(() => {});
+    }).catch(() => {
+      const fb = getSimulatedFallback('/channels/payout-reconciliation');
+      if (fb.ok && Array.isArray(fb.data)) setAggregatorOrders(fb.data);
+    });
   }, []);
 
   // Sample Z-report numbers
