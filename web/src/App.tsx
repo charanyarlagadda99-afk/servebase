@@ -27,7 +27,8 @@ export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(getCurrentUser());
   const [activeTab, setActiveTab] = useState<'pos' | 'kds' | 'inventory' | 'staff' | 'hotel' | 'reports'>('pos');
   const [selectedOutlet, setSelectedOutlet] = useState<string>('ServeBase Flagship Bistro & Bar');
-  const [isBackendOnline, setIsBackendOnline] = useState<boolean>(false);
+  const [isBackendOnline, setIsBackendOnline] = useState<boolean>(true);
+  const [isLocalServer, setIsLocalServer] = useState<boolean>(false);
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
   const [commandQuery, setCommandQuery] = useState<string>('');
   const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
@@ -161,9 +162,15 @@ export const App: React.FC = () => {
 
   // Health check polling
   useEffect(() => {
-    checkBackendHealth().then(res => setIsBackendOnline(res.online));
+    checkBackendHealth().then(res => {
+      setIsBackendOnline(res.online);
+      setIsLocalServer(res.isLocalServer);
+    });
     const interval = setInterval(() => {
-      checkBackendHealth().then(res => setIsBackendOnline(res.online));
+      checkBackendHealth().then(res => {
+        setIsBackendOnline(res.online);
+        setIsLocalServer(res.isLocalServer);
+      });
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -544,25 +551,29 @@ export const App: React.FC = () => {
           refreshData();
         }}
         isBackendOnline={isBackendOnline}
+        isLocalServer={isLocalServer}
       />
     );
   }
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FBF9F6]">
-      {/* OFFLINE BANNER */}
-      {!isBackendOnline && (
-        <div className="bg-amber-600 text-white px-4 py-1.5 text-xs font-semibold flex items-center justify-between shadow-xs">
+      {/* PUBLIC PREVIEW / CLOUD DEMO BAR */}
+      {!isLocalServer && (
+        <div className="bg-slate-900 border-b border-amber-500/30 text-amber-200 px-4 py-1.5 text-xs font-medium flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            <span>ServeBase API Unreachable — Reconnecting to backend ({API_BASE})...</span>
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span>ServeBase Public Demo Mode (Interactive In-Browser Engine) • Full C++ calculations simulated • POS, KDS, Splits & PMS ready</span>
           </div>
-          <button 
-            onClick={() => checkBackendHealth().then(r => setIsBackendOnline(r.online))}
-            className="text-[11px] underline font-bold hover:text-amber-100"
-          >
-            Retry Connection
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-slate-400 font-mono hidden md:inline">Standalone Cloud Deployment</span>
+            <button 
+              onClick={() => checkBackendHealth().then(r => { setIsBackendOnline(r.online); setIsLocalServer(r.isLocalServer); })}
+              className="text-[11px] text-amber-400 hover:text-amber-300 underline font-semibold"
+            >
+              Check Local Server
+            </button>
+          </div>
         </div>
       )}
 
