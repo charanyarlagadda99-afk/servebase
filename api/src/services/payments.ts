@@ -28,7 +28,7 @@ export async function processPayment(input: ProcessPaymentInput) {
 
     // 2. Fetch invoice and order
     const invRes = await client.query(
-      `SELECT i.*, o.table_id FROM invoices i
+      `SELECT i.*, o.table_id, o.room_number FROM invoices i
        JOIN orders o ON o.id = i.order_id
        WHERE i.id = $1 FOR UPDATE`,
       [input.invoice_id]

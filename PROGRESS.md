@@ -13,7 +13,7 @@
 | 6 | Inventory, Recipes, Purchasing & Payables | Completed | Stock ledger, Weighted Average Cost (WAC) recalculation, C++ recipe explosion for sales deductions, wastage tracking, C++ variance classification for cycle counts, and 3-way match validation (PO vs GRN vs Vendor Bill) |
 | 7 | Staff, Attendance, Payroll | Completed | Employee profiles (monthly/hourly), shift scheduling, PIN time-clock with 15-min late grace & early departure flags, statutory deduction configuration, and C++ payroll computation with locked payslips |
 | 8 | Double-Entry Accounting Ledger, Reports, System Alerts | Completed | Standard Chart of Accounts (COA), strict debit=credit invariant validation, automated Day-Close sales posting, COGS inventory consumption posting, payroll expense journal, Trial Balance, Flash P&L statement, and operational system alerts |
-| 9 | Hotel Extension (Rooms, Folios, Night Audit) | Pending | Room service, folio billing, night audit reconciliation |
+| 9 | Hotel Extension (Rooms, Folios, Night Audit) | Completed | Room inventory & inspection statuses, guest profiles & active folios, room service folio charging with strict credit limit checks, Night Audit wizard (ADR, RevPAR, Occupancy %), and checkout folio settlement |
 | 10 | Channels, Customers, Loyalty & Promotions | Pending | Aggregator webhook simulation, customer loyalty, coupon rules |
 | 11 | Offline Sync, Performance Benchmark, 90-Day Seed Data | Pending | Offline queue, sync conflict rules, 90 days realistic data generation |
 | 12 | Back-Office UI, Comprehensive Test Suite, Documentation | Pending | Complete role-aware responsive UI, scenario tests, complete product documentation |
