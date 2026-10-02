@@ -416,8 +416,8 @@ export const PosView: React.FC<PosViewProps> = ({
         {!selectedTable ? (
           /* TABLE FLOOR PLAN GRID WITH IDLE TIMERS */
           <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
-            {['Main Dining', 'Outdoor Terrace', 'Private Dining'].map(section => {
-              const sectionTables = tables.filter(t => t.section === section);
+            {Array.from(new Set(tables.map(t => t.section || 'Main Dining'))).map(section => {
+              const sectionTables = tables.filter(t => (t.section || 'Main Dining') === section);
               if (sectionTables.length === 0) return null;
 
               return (

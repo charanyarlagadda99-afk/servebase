@@ -178,6 +178,21 @@ function getSimulatedFallback(path: string, options: RequestInit): ApiResponse<a
         { id: 't4', table_number: 'T4', area_name: 'Terrace Courtyard', capacity: 4, status: 'billed', active_bill_amount: 145000, current_covers: 4, current_order_id: 'ord-sim-4' },
         { id: 't5', table_number: 'T5', area_name: 'Terrace Courtyard', capacity: 4, status: 'vacant' },
         { id: 't6', table_number: 'T6', area_name: 'Terrace Courtyard', capacity: 8, status: 'reserved' },
+        { id: 't7', table_number: 'B1', area_name: 'Bar & Lounge', capacity: 2, status: 'vacant' },
+        { id: 't8', table_number: 'B2', area_name: 'Bar & Lounge', capacity: 4, status: 'occupied', active_bill_amount: 56000, current_covers: 2, current_order_id: 'ord-sim-8' },
+      ],
+      simulated: true,
+    };
+  }
+
+  // Floor Sections / Areas
+  if (path.includes('/floor/sections') || path.includes('/floor/areas')) {
+    return {
+      ok: true,
+      data: [
+        { id: 'sec-1', name: 'Main Royal Hall', table_count: 3 },
+        { id: 'sec-2', name: 'Terrace Courtyard', table_count: 3 },
+        { id: 'sec-3', name: 'Bar & Lounge', table_count: 2 },
       ],
       simulated: true,
     };
@@ -197,8 +212,11 @@ function getSimulatedFallback(path: string, options: RequestInit): ApiResponse<a
         { id: 'm7', name: 'Paneer Lababdar', category_name: 'Main Curries', base_price_paise: 44000, tax_rate_percent: 5.0, station_code: 'curry', veg_status: 'veg', is_available: true },
         { id: 'm8', name: 'Dum Biryani Awadhi', category_name: 'Biryani & Breads', base_price_paise: 48000, tax_rate_percent: 5.0, station_code: 'curry', veg_status: 'non_veg', is_available: true },
         { id: 'm9', name: 'Tandoori Garlic Butter Naan', category_name: 'Biryani & Breads', base_price_paise: 11000, tax_rate_percent: 5.0, station_code: 'tandoor', veg_status: 'veg', is_available: true },
-        { id: 'm10', name: 'Kesari Phirni', category_name: 'Desserts', base_price_paise: 22000, tax_rate_percent: 5.0, station_code: 'dessert', veg_status: 'veg', is_available: true },
-        { id: 'm11', name: 'Masala Chaas', category_name: 'Beverages', base_price_paise: 14000, tax_rate_percent: 5.0, station_code: 'bar', veg_status: 'veg', is_available: true },
+        { id: 'm10', name: 'Roomali Roti', category_name: 'Biryani & Breads', base_price_paise: 8000, tax_rate_percent: 5.0, station_code: 'tandoor', veg_status: 'veg', is_available: true },
+        { id: 'm11', name: 'Kesari Phirni', category_name: 'Desserts', base_price_paise: 22000, tax_rate_percent: 5.0, station_code: 'dessert', veg_status: 'veg', is_available: true },
+        { id: 'm12', name: 'Gulab Jamun Shahi', category_name: 'Desserts', base_price_paise: 18000, tax_rate_percent: 5.0, station_code: 'dessert', veg_status: 'veg', is_available: true },
+        { id: 'm13', name: 'Masala Chaas', category_name: 'Beverages', base_price_paise: 14000, tax_rate_percent: 5.0, station_code: 'bar', veg_status: 'veg', is_available: true },
+        { id: 'm14', name: 'Darjeeling Fresh Lime Soda', category_name: 'Beverages', base_price_paise: 16000, tax_rate_percent: 5.0, station_code: 'bar', veg_status: 'veg', is_available: true },
       ],
       simulated: true,
     };
@@ -216,7 +234,7 @@ function getSimulatedFallback(path: string, options: RequestInit): ApiResponse<a
           server_name: 'Rahul',
           station_code: 'tandoor',
           status: 'open',
-          created_at: new Date().toISOString(),
+          created_at: new Date(Date.now() - 14 * 60000).toISOString(),
           items: [
             { id: 'ki-1', item_name: 'Paneer Tikka Angaarey', quantity: 1, course: 'starter', status: 'pending', notes: 'Extra crispy' }
           ]
@@ -228,10 +246,22 @@ function getSimulatedFallback(path: string, options: RequestInit): ApiResponse<a
           server_name: 'Pooja',
           station_code: 'curry',
           status: 'open',
-          created_at: new Date().toISOString(),
+          created_at: new Date(Date.now() - 8 * 60000).toISOString(),
           items: [
             { id: 'ki-2', item_name: 'Butter Chicken Grand Trunk', quantity: 2, course: 'main', status: 'preparing' },
             { id: 'ki-3', item_name: 'Dal Makhani Bukhara', quantity: 1, course: 'main', status: 'ready' }
+          ]
+        },
+        {
+          id: 'kot-sim-3',
+          kot_number: 103,
+          table_number: 'B2',
+          server_name: 'Rohan',
+          station_code: 'bar',
+          status: 'open',
+          created_at: new Date(Date.now() - 3 * 60000).toISOString(),
+          items: [
+            { id: 'ki-4', item_name: 'Darjeeling Fresh Lime Soda', quantity: 2, course: 'beverage', status: 'ready', notes: 'Less ice' }
           ]
         }
       ],
@@ -319,6 +349,22 @@ function getSimulatedFallback(path: string, options: RequestInit): ApiResponse<a
     };
   }
 
+  if (path.includes('/orders/ord-sim-8')) {
+    return {
+      ok: true,
+      data: {
+        id: 'ord-sim-8',
+        table_id: 't8',
+        status: 'occupied',
+        items: [
+          { id: 'oi-5', menu_item_id: 'm14', name: 'Darjeeling Fresh Lime Soda', unit_price_paise: 16000, quantity: 2, course: 'beverage', status: 'sent', station: 'bar' },
+          { id: 'oi-6', menu_item_id: 'm2', name: 'Dahi Ke Kebab', unit_price_paise: 34000, quantity: 1, course: 'starter', status: 'sent', station: 'pantry' },
+        ]
+      },
+      simulated: true,
+    };
+  }
+
   // Invoice creation
   if (path.includes('/billing/invoice')) {
     return {
@@ -337,6 +383,8 @@ function getSimulatedFallback(path: string, options: RequestInit): ApiResponse<a
         { id: 'inv-2', sku: 'RM-PANEER', name: 'Fresh Malai Paneer', category: 'Dairy', unit_symbol: 'kg', current_stock: 18, par_level: 25, reorder_quantity: 30, current_cost_paise: 32000, supplier_name: 'Heritage Farms' },
         { id: 'inv-3', sku: 'RM-CHICKEN', name: 'Boneless Chicken Breast', category: 'Poultry', unit_symbol: 'kg', current_stock: 42, par_level: 30, reorder_quantity: 40, current_cost_paise: 26000, supplier_name: 'Royal Poultry' },
         { id: 'inv-4', sku: 'RM-BUTTER', name: 'Salted Amul Table Butter', category: 'Dairy', unit_symbol: 'kg', current_stock: 28, par_level: 15, reorder_quantity: 20, current_cost_paise: 48000, supplier_name: 'Gujarat Dairy' },
+        { id: 'inv-5', sku: 'RM-CREAM', name: 'Amul Fresh Cooking Cream', category: 'Dairy', unit_symbol: 'L', current_stock: 12, par_level: 20, reorder_quantity: 15, current_cost_paise: 21000, supplier_name: 'Gujarat Dairy' },
+        { id: 'inv-6', sku: 'RM-SPICE', name: 'Royal Shahi Garam Masala', category: 'Spices', unit_symbol: 'kg', current_stock: 8, par_level: 10, reorder_quantity: 10, current_cost_paise: 85000, supplier_name: 'Old Delhi Spice Co.' },
       ],
       simulated: true,
     };
@@ -351,6 +399,7 @@ function getSimulatedFallback(path: string, options: RequestInit): ApiResponse<a
         { id: 's2', employee_code: 'EMP-002', full_name: 'Pooja Verma', role_name: 'Cashier', status: 'clocked_in', clock_in_time: '11:30 AM', phone: '+91 98765 43211', base_salary_paise: 3200000 },
         { id: 's3', employee_code: 'EMP-003', full_name: 'Chef Sanjeev', role_name: 'Head Chef', status: 'clocked_in', clock_in_time: '09:00 AM', phone: '+91 98765 43212', base_salary_paise: 7500000 },
         { id: 's4', employee_code: 'EMP-004', full_name: 'Rahul Sharma', role_name: 'Captain', status: 'clocked_out', phone: '+91 98765 43213', base_salary_paise: 2800000 },
+        { id: 's5', employee_code: 'EMP-005', full_name: 'Rohan Mehra', role_name: 'Bartender', status: 'clocked_in', clock_in_time: '04:00 PM', phone: '+91 98765 43214', base_salary_paise: 3000000 },
       ],
       simulated: true,
     };
@@ -363,8 +412,10 @@ function getSimulatedFallback(path: string, options: RequestInit): ApiResponse<a
       data: [
         { id: 'r101', room_number: '101', room_type: 'deluxe', status: 'occupied', housekeeping_status: 'clean', guest_name: 'Vikramaditya Roy', base_tariff_paise: 650000, current_balance_paise: 145000 },
         { id: 'r102', room_number: '102', room_type: 'deluxe', status: 'vacant', housekeeping_status: 'clean', base_tariff_paise: 650000, current_balance_paise: 0 },
+        { id: 'r103', room_number: '103', room_type: 'deluxe', status: 'reserved', housekeeping_status: 'clean', base_tariff_paise: 650000, current_balance_paise: 0 },
         { id: 'r201', room_number: '201', room_type: 'suite', status: 'occupied', housekeeping_status: 'inspected', guest_name: 'Ananya Sharma', base_tariff_paise: 1200000, current_balance_paise: 280000 },
         { id: 'r202', room_number: '202', room_type: 'suite', status: 'vacant', housekeeping_status: 'dirty', base_tariff_paise: 1200000, current_balance_paise: 0 },
+        { id: 'r301', room_number: '301', room_type: 'suite', status: 'occupied', housekeeping_status: 'clean', guest_name: 'Dr. Farhan Qureshi', base_tariff_paise: 2500000, current_balance_paise: 720000 },
       ],
       simulated: true,
     };
@@ -376,7 +427,8 @@ function getSimulatedFallback(path: string, options: RequestInit): ApiResponse<a
       ok: true,
       data: [
         { id: 'alt-1', title: 'Low Stock Alert', message: 'Fresh Malai Paneer below reorder level (18 kg < 25 kg)', severity: 'warning', timestamp: '12:30 PM', resolved: false, category: 'inventory' },
-        { id: 'alt-2', title: 'SHA-256 Audit Seal', message: 'Linear cryptographic ledger verified. 142 chained blocks intact.', severity: 'info', timestamp: '01:00 PM', resolved: false, category: 'security' },
+        { id: 'alt-2', title: 'Discount Approval Required', message: 'Table T4 requested 20% bill discount. Approved by Rajiv Singhania.', severity: 'info', timestamp: '01:15 PM', resolved: false, category: 'billing' },
+        { id: 'alt-3', title: 'SHA-256 Audit Seal', message: 'Linear cryptographic ledger verified. 142 chained blocks intact.', severity: 'info', timestamp: '01:00 PM', resolved: false, category: 'security' },
       ],
       simulated: true,
     };
