@@ -11,7 +11,7 @@
 | 4 | Billing, Invoices, Payments, Shifts, Day Close | Completed | Consecutive invoice series (T1/YY-YY/00001) under row lock, credit notes with folio charge reversal, idempotent split-tender payments, shifts with denomination reconciliation, and Z-report day close |
 | 5 | Kitchen Display System (KDS), POS Screens, Realtime SSE | Completed | Station queues (Tandoor, Curry, Bar, Expediter), bump item/ticket with auto KOT completion, recall window, course firing (hold/fire), realtime pub/sub bus, kitchen prep analytics |
 | 6 | Inventory, Recipes, Purchasing & Payables | Completed | Stock ledger, Weighted Average Cost (WAC) recalculation, C++ recipe explosion for sales deductions, wastage tracking, C++ variance classification for cycle counts, and 3-way match validation (PO vs GRN vs Vendor Bill) |
-| 7 | Staff, Attendance, Payroll | Pending | Roster, PIN clock in/out, salary structures, statutory deduction tables |
+| 7 | Staff, Attendance, Payroll | Completed | Employee profiles (monthly/hourly), shift scheduling, PIN time-clock with 15-min late grace & early departure flags, statutory deduction configuration, and C++ payroll computation with locked payslips |
 | 8 | Double-Entry Accounting Ledger, Reports, System Alerts | Pending | Chart of accounts, journal posting, flash P&L, balance sheet, alert outbox |
 | 9 | Hotel Extension (Rooms, Folios, Night Audit) | Pending | Room service, folio billing, night audit reconciliation |
 | 10 | Channels, Customers, Loyalty & Promotions | Pending | Aggregator webhook simulation, customer loyalty, coupon rules |
