@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "tsx src/server.ts",
     "migrate": "tsx src/db/migrate.ts",
+    "db:init": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
+    "db:seed": "tsx src/db/seed.ts",
     "test": "vitest run --fileParallelism=false"
   },
   "dependencies": {
