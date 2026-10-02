@@ -88,7 +88,7 @@ inline json op_price_bill(const json& payload) {
     result.item_discount_paise = total_item_discount;
 
     // Step 2: Compute Bill-level discount
-    int64_t pre_discount_subtotal = std::max(0LL, gross_subtotal - total_item_discount);
+    int64_t pre_discount_subtotal = std::max<int64_t>(0, gross_subtotal - total_item_discount);
     int64_t total_bill_discount = 0;
     if (bill_discount_percent > 0.0) {
         total_bill_discount += static_cast<int64_t>(std::round(pre_discount_subtotal * (bill_discount_percent / 100.0)));
@@ -109,8 +109,8 @@ inline json op_price_bill(const json& payload) {
 
     for (size_t i = 0; i < items.size(); ++i) {
         const auto& item = items[i];
-        int64_t line_gross = item.is_complimentary ? 0LL : (item.quantity * item.unit_price_paise);
-        int64_t line_net_item = std::max(0LL, line_gross - item.discount_paise);
+        int64_t line_gross = item.is_complimentary ? int64_t{0} : (item.quantity * item.unit_price_paise);
+        int64_t line_net_item = std::max<int64_t>(0, line_gross - item.discount_paise);
 
         // Allocate bill discount
         int64_t allocated_bill_discount = 0;
@@ -124,7 +124,7 @@ inline json op_price_bill(const json& payload) {
             }
         }
 
-        int64_t line_taxable = std::max(0LL, line_net_item - allocated_bill_discount);
+        int64_t line_taxable = std::max<int64_t>(0, line_net_item - allocated_bill_discount);
         int64_t line_cgst = 0;
         int64_t line_sgst = 0;
         int64_t line_igst = 0;

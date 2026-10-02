@@ -1,13 +1,13 @@
 # ServeBase Master Backlog & Verification Ledger
 
 Total Items: 378
-Completed Items: 0 / 378 (0.0%)
+Completed Items: 3 / 378 (0.8%)
 
 | ID | Section | Description | Acceptance Tests | Status | Evidence |
 | :--- | :--- | :--- | :--- | :---: | :--- |
-| BL-001 | D1-CORE | Fix std::max(0LL, int64_t) in core/src/operations/price_bill.cpp and compute_payroll.cpp for Linux g++ | `core/tests/test_price_bill` / `none` | [ ] | pending |
-| BL-002 | D1-CORE | Create portable root and core/Makefile with clean, test, and release targets | `make test` / `none` | [ ] | pending |
-| BL-003 | D1-CORE | Ensure core builds and passes all 10 operation tests natively on Linux and Windows | `core/bin/test_runner` / `none` | [ ] | pending |
+| BL-001 | D1-CORE | Fix std::max(0LL, int64_t) in core/src/operations/price_bill.cpp and compute_payroll.cpp for Linux g++ | `core/tests/test_price_bill` / `none` | [x] | `core/src/ops/compute_payroll.hpp`, `core/src/ops/price_bill.hpp` |
+| BL-002 | D1-CORE | Create portable root and core/Makefile with clean, test, and release targets | `make test` / `none` | [x] | `core/Makefile`, `Makefile` |
+| BL-003 | D1-CORE | Ensure core builds and passes all 10 operation tests natively on Linux and Windows | `core/bin/test_runner` / `none` | [x] | `core/bin/test_runner.exe` (10/10 passed) |
 | BL-004 | D2-API-SURFACE | Establish Fastify API route prefix /api/v1 with standardized JSON envelope and error handler | `api/tests/http/api_envelope.test.ts` / `none` | [ ] | pending |
 | BL-005 | D2-API-SURFACE | Implement OpenAPI / Swagger documentation endpoint at /docs and /docs/json | `api/tests/http/openapi.test.ts` / `none` | [ ] | pending |
 | BL-006 | D2-API-SURFACE | Implement /api/v1/auth routes (terminal-pin, backoffice-login, refresh, logout, me) | `api/tests/http/auth_routes.test.ts` / `web/tests/e2e/login.spec.ts` | [ ] | pending |

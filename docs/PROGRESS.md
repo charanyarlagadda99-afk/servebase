@@ -2,14 +2,14 @@
 
 ## Current Status
 - **Total Backlog Items**: 378
-- **Completed Items**: 0 / 378 (0.0%)
-- **Pending Items**: 378
-- **NEXT**: BL-001
+- **Completed Items**: 3 / 378 (0.8%)
+- **Pending Items**: 375
+- **NEXT**: BL-004
 
 ---
 
 ## Defects Status Summary (D1 - D11)
-- [ ] **D1 (Core Engine)**: Linux g++ portability, portable Makefile, C++ operation verification.
+- [x] **D1 (Core Engine)**: Linux g++ portability fixed (`std::max<int64_t>(0, ...)`), portable `core/Makefile` and root `Makefile` added, all 10 C++ ops verified.
 - [ ] **D2 (REST Surface)**: Versioned `/api/v1` routes over all domain services, OpenAPI documentation.
 - [ ] **D3 (API Security & RBAC)**: JWT auth, PIN login, role matrix guard, tenant scoping, Zod validation, rate limiting.
 - [ ] **D4 (Web Data Wiring)**: Complete removal of mock data, typed API client, real login view, offline banner, persistence.

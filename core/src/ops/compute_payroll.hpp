@@ -52,7 +52,7 @@ inline json op_compute_payroll(const json& payload) {
         }
 
         // Apply late deduction from gross
-        gross_paise = std::max(0LL, gross_paise - late_deduction_paise);
+        gross_paise = std::max<int64_t>(0, gross_paise - late_deduction_paise);
 
         // Deductions
         int64_t pf_paise = 0;
