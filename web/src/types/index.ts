@@ -14,6 +14,8 @@ export interface Table {
   covers?: number;
   server_name?: string;
   seated_time?: string;
+  idle_minutes?: number;
+  locked_by?: string; // Terminal or staff locking the table
 }
 
 export interface MenuItem {
@@ -27,6 +29,7 @@ export interface MenuItem {
   is_available: boolean;
   description?: string;
   veg_status: 'veg' | 'non_veg' | 'egg';
+  food_cost_paise?: number; // Raw ingredient cost for menu engineering
 }
 
 export interface CartItem {
@@ -39,6 +42,9 @@ export interface CartItem {
   status: CourseStatus;
   station: Station;
   notes?: string;
+  seat_number?: number;
+  is_voided?: boolean;
+  void_reason?: string;
   modifiers?: { name: string; price: number }[];
 }
 
@@ -76,6 +82,9 @@ export interface InventoryItem {
   unit_cost: number; // in paise
   supplier_name: string;
   last_received_at?: string;
+  theoretical_usage?: number;
+  actual_usage?: number;
+  variance_qty?: number;
 }
 
 export interface PurchaseOrder {
@@ -97,6 +106,7 @@ export interface StaffMember {
   clock_in_time?: string;
   phone: string;
   base_monthly_salary: number; // paise
+  pin?: string;
 }
 
 export interface Room {
@@ -110,6 +120,7 @@ export interface Room {
   rate_per_night: number; // paise
   current_folio_balance: number; // paise
   check_in_date?: string;
+  charges_history?: { id: string; desc: string; amount: number; timestamp: string; is_reversed?: boolean }[];
 }
 
 export interface SystemAlert {
@@ -145,4 +156,43 @@ export interface ZReportSummary {
   total_covers: number;
   average_bill_value: number;
   void_amount: number;
+}
+
+export interface AggregatorOrder {
+  id: string;
+  order_id: string;
+  channel: 'Zomato' | 'Swiggy';
+  customer_name: string;
+  status: 'placed' | 'accepted' | 'preparing' | 'ready_for_pickup' | 'picked_up' | 'delivered';
+  items_summary: string;
+  gross_amount: number; // paise
+  commission_amount: number; // paise (e.g. 18%)
+  net_payout: number; // paise
+  placed_at: string;
+  rider_name?: string;
+  rider_phone?: string;
+}
+
+export interface MenuEngineeringItem {
+  id: string;
+  name: string;
+  category: string;
+  units_sold: number;
+  selling_price: number; // paise
+  food_cost: number; // paise
+  margin_paise: number;
+  popularity: 'high' | 'low';
+  profitability: 'high' | 'low';
+  quadrant: 'star' | 'plowhorse' | 'puzzle' | 'dog';
+}
+
+export interface DenominationTally {
+  note_2000: number;
+  note_500: number;
+  note_200: number;
+  note_100: number;
+  note_50: number;
+  note_20: number;
+  note_10: number;
+  coins: number;
 }

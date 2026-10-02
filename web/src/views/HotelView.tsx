@@ -3,13 +3,15 @@ import { Room } from '../types';
 import { formatRupees } from '../utils/currency';
 import { 
   Building2, BedDouble, CheckCircle2, UserPlus, 
-  Receipt, Moon, Sparkles, AlertCircle, Wrench, Shield
+  Receipt, Moon, Sparkles, AlertCircle, Wrench, Shield, 
+  RotateCcw, History, X
 } from 'lucide-react';
 
 interface HotelViewProps {
   rooms: Room[];
   onUpdateRoomStatus: (roomId: string, status: Room['status'], cleanStatus?: Room['clean_status']) => void;
   onPostCharge: (roomId: string, amountPaise: number, description: string) => void;
+  onReverseCharge?: (roomId: string, chargeId: string) => void;
   onCheckIn: (roomId: string, guestName: string) => void;
   onCheckOut: (roomId: string) => void;
 }
@@ -18,12 +20,14 @@ export const HotelView: React.FC<HotelViewProps> = ({
   rooms,
   onUpdateRoomStatus,
   onPostCharge,
+  onReverseCharge,
   onCheckIn,
   onCheckOut
 }) => {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showCheckInModal, setShowCheckInModal] = useState<boolean>(false);
   const [showChargeModal, setShowChargeModal] = useState<boolean>(false);
+  const [showChargesHistoryModal, setShowChargesHistoryModal] = useState<boolean>(false);
   const [showNightAuditModal, setShowNightAuditModal] = useState<boolean>(false);
   const [guestNameInput, setGuestNameInput] = useState<string>('');
   const [chargeAmountPaise, setChargeAmountPaise] = useState<number>(145000);
@@ -43,19 +47,29 @@ export const HotelView: React.FC<HotelViewProps> = ({
   const handleCheckInSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRoom || !guestNameInput.trim()) return;
-    onCheckIn(selectedRoom.id, guestNameInput);
+    onCheckIn(selectedRoom.id, guestNameInput.trim());
     setShowCheckInModal(false);
-    setToastMsg(`Guest ${guestNameInput} checked in to Room ${selectedRoom.room_number}. Folio created.`);
+    setToastMsg(`Guest ${guestNameInput.trim()} checked in to Room ${selectedRoom.room_number}. Folio created.`);
     setGuestNameInput('');
     setTimeout(() => setToastMsg(null), 3500);
   };
 
   const handleChargeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRoom) return;
+    if (!selectedRoom || chargeAmountPaise <= 0) return;
     onPostCharge(selectedRoom.id, chargeAmountPaise, chargeDesc);
     setShowChargeModal(false);
     setToastMsg(`Charge of ${formatRupees(chargeAmountPaise)} posted to Room ${selectedRoom.room_number} folio.`);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
+
+  const handleReverseCharge = (chargeId: string, amount: number) => {
+    if (!selectedRoom) return;
+    if (onReverseCharge) {
+      onReverseCharge(selectedRoom.id, chargeId);
+    }
+    setToastMsg(`Room charge of ${formatRupees(amount)} reversed and credited back to guest folio.`);
+    setShowChargesHistoryModal(false);
     setTimeout(() => setToastMsg(null), 3500);
   };
 
@@ -81,40 +95,39 @@ export const HotelView: React.FC<HotelViewProps> = ({
       )}
 
       {/* TOP STATS & ACTIONS BAR */}
-      <div className="bg-white border-b border-[#E7E2DC] px-6 py-4 flex items-center justify-between">
+      <div className="bg-white border-b border-[#E7E2DC] px-4 sm:px-6 py-3.5 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold font-serif text-[#1C1917]">Hotel PMS & Guest Ledger</h1>
-          <p className="text-xs text-[#8C827A]">Folio Management, F&B Room Charges, and Night Audit Wizard</p>
+          <h1 className="text-lg sm:text-xl font-bold font-serif text-[#1C1917]">Hotel PMS & Guest Ledger</h1>
+          <p className="text-[11px] text-[#8C827A]">Folio Management, F&B Room Charges, Void Reversals & Night Audit</p>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="bg-[#FAF8F5] border border-[#E7E2DC] px-3.5 py-1.5 rounded-xl text-right">
+        <div className="flex items-center gap-3">
+          <div className="bg-[#FAF8F5] border border-[#E7E2DC] px-3 py-1.5 rounded-xl text-right hidden sm:block">
             <span className="text-[10px] uppercase font-bold text-[#8C827A] block">Occupancy</span>
-            <span className="text-sm font-bold font-serif text-[#1C1917]">{occupancyPercent}% ({occupiedRooms}/{totalRooms})</span>
+            <span className="text-xs font-bold font-serif text-[#1C1917]">{occupancyPercent}% ({occupiedRooms}/{totalRooms})</span>
           </div>
 
-          <div className="bg-[#FAF8F5] border border-[#E7E2DC] px-3.5 py-1.5 rounded-xl text-right">
+          <div className="bg-[#FAF8F5] border border-[#E7E2DC] px-3 py-1.5 rounded-xl text-right hidden sm:block">
             <span className="text-[10px] uppercase font-bold text-[#8C827A] block">ADR / RevPAR</span>
-            <span className="text-sm font-bold font-serif text-[#1C1917]">{formatRupees(adr)} / {formatRupees(revpar)}</span>
+            <span className="text-xs font-bold font-serif text-[#1C1917]">{formatRupees(adr)} / {formatRupees(revpar)}</span>
           </div>
 
           <button
             onClick={() => setShowNightAuditModal(true)}
-            className="bg-[#1C1917] hover:bg-black text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors shadow-sm"
+            className="bg-[#1C1917] hover:bg-black text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
           >
-            <Moon className="w-4 h-4 text-amber-400" />
-            Run Night Audit
+            <Moon className="w-3.5 h-3.5 text-amber-400" />
+            Night Audit
           </button>
         </div>
       </div>
 
       {/* ROOMS GRID */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
           {rooms.map(room => {
             const isOccupied = room.status === 'occupied';
             const isVacant = room.status === 'vacant';
-            const isMaintenance = room.status === 'maintenance';
 
             return (
               <div
@@ -128,14 +141,14 @@ export const HotelView: React.FC<HotelViewProps> = ({
                 <div>
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <span className="text-lg font-bold font-serif text-[#1C1917]">Room {room.room_number}</span>
+                      <span className="text-base font-bold font-serif text-[#1C1917]">Room {room.room_number}</span>
                       <span className="text-[10px] uppercase font-bold text-[#8C827A] block tracking-wide">
                         {room.room_type}
                       </span>
                     </div>
 
                     <div className="text-right">
-                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                      <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${
                         isOccupied ? 'bg-[#D9531E]/10 text-[#D9531E]' :
                         isVacant ? 'bg-[#2D5A27]/10 text-[#2D5A27]' :
                         'bg-gray-100 text-gray-700'
@@ -152,8 +165,16 @@ export const HotelView: React.FC<HotelViewProps> = ({
                   </div>
 
                   {isOccupied ? (
-                    <div className="bg-white/80 border border-[#E7E2DC] rounded-lg p-2.5 my-2">
-                      <p className="text-xs font-bold text-[#1C1917] truncate">{room.guest_name}</p>
+                    <div className="bg-white/90 border border-[#E7E2DC] rounded-lg p-2.5 my-2">
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs font-bold text-[#1C1917] truncate">{room.guest_name}</p>
+                        <button
+                          onClick={() => { setSelectedRoom(room); setShowChargesHistoryModal(true); }}
+                          className="text-[10px] text-[#D9531E] font-bold hover:underline flex items-center gap-0.5"
+                        >
+                          <History className="w-2.5 h-2.5" /> History
+                        </button>
+                      </div>
                       <div className="flex justify-between items-center text-[11px] text-[#8C827A] mt-1">
                         <span>Folio Balance:</span>
                         <span className="font-bold text-[#1C1917] font-mono">{formatRupees(room.current_folio_balance)}</span>
@@ -207,10 +228,10 @@ export const HotelView: React.FC<HotelViewProps> = ({
 
       {/* CHECK-IN MODAL */}
       {showCheckInModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <form onSubmit={handleCheckInSubmit} className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold font-serif text-[#1C1917] mb-1">Check In: Room {selectedRoom.room_number}</h3>
-            <p className="text-xs text-[#8C827A] mb-4">Creates guest account and opens billing folio ledger</p>
+            <h3 className="text-base font-bold font-serif text-[#1C1917] mb-1">Check In: Room {selectedRoom.room_number}</h3>
+            <p className="text-xs text-[#8C827A] mb-4">Opens billing folio ledger and creates guest folio</p>
 
             <div className="space-y-3 mb-6">
               <div>
@@ -258,9 +279,9 @@ export const HotelView: React.FC<HotelViewProps> = ({
 
       {/* POST F&B CHARGE MODAL */}
       {showChargeModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <form onSubmit={handleChargeSubmit} className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold font-serif text-[#1C1917] mb-1">Post Charge: Room {selectedRoom.room_number}</h3>
+            <h3 className="text-base font-bold font-serif text-[#1C1917] mb-1">Post Charge: Room {selectedRoom.room_number}</h3>
             <p className="text-xs text-[#8C827A] mb-4">Guest: {selectedRoom.guest_name}</p>
 
             <div className="space-y-3 mb-6">
@@ -279,10 +300,11 @@ export const HotelView: React.FC<HotelViewProps> = ({
                 <label className="text-xs font-bold text-[#1C1917] block mb-1">Amount (Paise)</label>
                 <input
                   type="number"
+                  min="100"
                   required
                   value={chargeAmountPaise}
-                  onChange={e => setChargeAmountPaise(parseInt(e.target.value, 10))}
-                  className="w-full bg-[#FAF8F5] border border-[#E7E2DC] rounded-lg p-2 text-xs"
+                  onChange={e => setChargeAmountPaise(Math.max(100, parseInt(e.target.value, 10) || 100))}
+                  className="w-full bg-[#FAF8F5] border border-[#E7E2DC] rounded-lg p-2 text-xs font-mono"
                 />
                 <span className="text-[10px] text-[#8C827A] mt-0.5 block">
                   Amount: {formatRupees(chargeAmountPaise)}
@@ -309,9 +331,66 @@ export const HotelView: React.FC<HotelViewProps> = ({
         </div>
       )}
 
+      {/* CHARGES HISTORY & VOID REVERSAL MODAL */}
+      {showChargesHistoryModal && selectedRoom && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-[#E7E2DC] pb-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold font-serif text-[#1C1917]">Folio Charges: Room {selectedRoom.room_number}</h3>
+                <p className="text-xs text-[#8C827A]">Guest: {selectedRoom.guest_name}</p>
+              </div>
+              <button onClick={() => setShowChargesHistoryModal(false)} className="text-[#8C827A]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+              {(selectedRoom.charges_history || []).map(chg => (
+                <div key={chg.id} className="p-2.5 rounded-lg border border-[#E7E2DC] bg-[#FAF8F5] flex justify-between items-center text-xs">
+                  <div>
+                    <span className={`font-bold block ${chg.is_reversed ? 'line-through text-[#8C827A]' : 'text-[#1C1917]'}`}>
+                      {chg.desc}
+                    </span>
+                    <span className="text-[10px] text-[#8C827A]">{chg.timestamp}</span>
+                  </div>
+
+                  <div className="text-right flex items-center gap-2">
+                    <span className={`font-mono font-bold ${chg.is_reversed ? 'line-through text-[#8C827A]' : 'text-[#D9531E]'}`}>
+                      {formatRupees(chg.amount)}
+                    </span>
+                    {!chg.is_reversed && (
+                      <button
+                        onClick={() => handleReverseCharge(chg.id, chg.amount)}
+                        className="p-1 rounded bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold flex items-center gap-0.5 border border-red-200"
+                        title="Reverse / Void Charge"
+                      >
+                        <RotateCcw className="w-2.5 h-2.5" /> Void
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {(!selectedRoom.charges_history || selectedRoom.charges_history.length === 0) && (
+                <p className="text-xs text-[#8C827A] text-center py-4">No incidental charges posted yet.</p>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowChargesHistoryModal(false)}
+                className="py-1.5 px-4 bg-[#1C1917] text-white rounded-lg text-xs font-bold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* NIGHT AUDIT WIZARD MODAL */}
       {showNightAuditModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl">
             <div className="flex items-center gap-2 mb-2">
               <Moon className="w-5 h-5 text-amber-500" />
@@ -321,7 +400,7 @@ export const HotelView: React.FC<HotelViewProps> = ({
               Close hotel day, post room tariffs, compute ADR & RevPAR, and roll business date
             </p>
 
-            <div className="space-y-3 mb-6 bg-[#FAF8F5] p-4 rounded-xl border border-[#E7E2DC]">
+            <div className="space-y-2.5 mb-6 bg-[#FAF8F5] p-4 rounded-xl border border-[#E7E2DC]">
               <div className="flex justify-between text-xs">
                 <span className="text-[#8C827A]">Total Room Inventory:</span>
                 <span className="font-bold text-[#1C1917]">{totalRooms} Rooms</span>
