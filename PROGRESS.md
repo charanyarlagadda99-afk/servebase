@@ -1,29 +1,30 @@
-# ServeBase Project Implementation Progress
+# ServeBase Engineering Progress & Verification Tracker
 
-## Build Pipeline & Status
-
-| Phase | Milestone | Status | Details |
-|---|---|---|---|
-| 0 | Environment & Toolchain Setup | Completed | Git 2.55, Node 24.19, G++ 16.2 (C++17), PostgreSQL 16.4 running on localhost:5432 with servebase database |
-| 1 | Setup & Monorepo, Database Migrations, Auth & RBAC, Audit Log | Completed | Complete schema migrated, SHA-256 linear hash-chain audit log with tamper detection, PIN & JWT auth, role permissions & approval workflows |
-| 2 | Menu, Floor, Orders, Kitchen Tickets | Completed | Category/item/variant/modifier hierarchy, channel pricing, floor layouts, table state machine with optimistic locking, move/merge tables, station KOT routing, void rules |
-| 3 | Core Engine (C++17): Pricing, Tax, Splits, Kitchen Routing | Completed | High-performance C++17 stateless JSON worker engine, 10 core ops implemented, worker process pool with auto-restart, comprehensive C++ unit test runner and API integration tests |
-| 4 | Billing, Invoices, Payments, Shifts, Day Close | Completed | Consecutive invoice series (T1/YY-YY/00001) under row lock, credit notes with folio charge reversal, idempotent split-tender payments, shifts with denomination reconciliation, and Z-report day close |
-| 5 | Kitchen Display System (KDS), POS Screens, Realtime SSE | Completed | Station queues (Tandoor, Curry, Bar, Expediter), bump item/ticket with auto KOT completion, recall window, course firing (hold/fire), realtime pub/sub bus, kitchen prep analytics |
-| 6 | Inventory, Recipes, Purchasing & Payables | Completed | Stock ledger, Weighted Average Cost (WAC) recalculation, C++ recipe explosion for sales deductions, wastage tracking, C++ variance classification for cycle counts, and 3-way match validation (PO vs GRN vs Vendor Bill) |
-| 7 | Staff, Attendance, Payroll | Completed | Employee profiles (monthly/hourly), shift scheduling, PIN time-clock with 15-min late grace & early departure flags, statutory deduction configuration, and C++ payroll computation with locked payslips |
-| 8 | Double-Entry Accounting Ledger, Reports, System Alerts | Completed | Standard Chart of Accounts (COA), strict debit=credit invariant validation, automated Day-Close sales posting, COGS inventory consumption posting, payroll expense journal, Trial Balance, Flash P&L statement, and operational system alerts |
-| 9 | Hotel Extension (Rooms, Folios, Night Audit) | Completed | Room inventory & inspection statuses, guest profiles & active folios, room service folio charging with strict credit limit checks, Night Audit wizard (ADR, RevPAR, Occupancy %), and checkout folio settlement |
-| 10 | Channels, Customers, Loyalty & Promotions | Completed | Customer profiles with cumulative spend tracking, 4-tier loyalty engine with points earning/redemption, promotions & coupon validation engine, and simulated aggregator order webhook intake with rider lifecycle tracking |
-| 11 | Offline Sync, Performance Benchmark, 90-Day Seed Data | Completed | Offline POS transaction queue synchronization with idempotency replay handling, high-throughput invoice allocation benchmark with zero race conditions (122 req/s), and complete realistic 90-day multi-outlet seed dataset |
-| 12 | Back-Office UI, Comprehensive Test Suite, Documentation | Completed | React 18 touch UI (POS, KDS, Inventory, Staff, Hotel PMS, Reports/Financials), 76/76 automated test pass rate across 11 test suites, C++ native verification, full documentation suite (README, ARCHITECTURE, DOMAIN_GUIDE, RUNBOOK, TEST_REPORT, DEMO_SCRIPT, LIMITATIONS, COMPLIANCE_NOTES) |
+## Defects Status Summary (D1 - D11)
+- [x] **D1 (Core Engine)**: Linux g++ portability fixed (`std::max<int64_t>(0, ...)` in `ops/price_bill.hpp` and `ops/compute_payroll.hpp`), portable `core/Makefile` and root `Makefile` added, all 10 C++ operations verified with zero test failures.
+- [x] **D2 (REST Surface)**: Versioned `/api/v1` routes over all 24 domain service areas: `auth`, `platform`, `menu`, `floor`, `orders`, `kot`, `kitchen`, `billing`, `payments`, `shifts`, `day-close`, `inventory`, `recipes`, `purchasing`, `staff`, `payroll`, `accounting`, `alerts`, `hotel`, `channels`, `customers`, `promotions`, `sync`, `audit`, `reports`, `settings`, `imports`. OpenAPI documentation mounted at `/docs`.
+- [x] **D3 (API Security & RBAC)**: JWT authentication, 4-digit terminal PIN login, role matrix permissions (`requirePermission`), tenant outlet scoping validated against user roles, Zod request validation, rate limiting (`@fastify/rate-limit`).
+- [x] **D4 (Web Data Wiring)**: Complete removal of mock data (`web/src/data/mockData.ts` deleted), typed API client (`web/src/api/client.ts`), dedicated terminal PIN & password login view (`web/src/views/LoginView.tsx`), persistent session storage in localStorage, sticky offline banner when backend is unreachable, live data wiring across Pos, Floor, KDS, Inventory, Staff, Hotel, Reports.
+- [x] **D5 (Server-Side Math)**: Removed browser pricing, GST, discount, and splitting math from `PosView.tsx`. All calculations delegated strictly to API + C++ core engine (`/api/v1/billing/calculate` and `/api/v1/billing/split`).
+- [x] **D6 (Manager Approvals)**: Real PIN and capability verification on server (`/api/v1/auth/approve`), returning approver identity, reason code, and recording in cryptographic audit trail.
+- [x] **D7 (Server Sequences)**: Consecutive invoice numbers (`finalizeBill`) and KOT numbers (`sendKOT`) allocated strictly on server under row locks in PostgreSQL.
+- [x] **D8 (Realtime Streaming)**: SSE event channel (`/api/v1/realtime/stream`) broadcasting station queues (`KOT_CREATED`, `KOT_BUMPED`) and floor layout updates (`TABLE_UPDATED`).
+- [x] **D9 (Verification Harness)**: Fastify HTTP injection test suite (`api/tests/http_api_v1.test.ts`, 33 tests) and Puppeteer/Playwright browser suite (`web/tests/e2e_pos_flow.js`) against running stack in headless Google Chrome.
+- [x] **D10 (Documentation)**: Measured progress numbers and accurate setup runbooks in `PROGRESS.md`, `TEST_REPORT.md`, and `README.md`.
+- [x] **D11 (Unified Verification)**: Single `npm run verify` command that verifies C++ core tests, all 102 API tests across 12 test suites, Vite web production build, and headless Chrome browser E2E test.
 
 ---
 
-## Deliverables Summary
+## Live Deployments
+- **Production Vercel URL**: `https://web-ba605krb7-foraitools28-9900s-projects.vercel.app`
+- **Aliased Domain**: `https://web-rho-nine-toizqjrice.vercel.app`
+- **GitHub Repository**: `https://github.com/charanyarlagadda99-afk/servebase.git`
 
-- **Total Automated Vitest Assertions**: 76/76 Passing (100%)
-- **C++17 Engine Operations Verified**: 10/10 Passing (100%)
-- **Frontend Production Build**: Clean `tsc && vite build` (247 KB JS, 24 KB CSS gzip bundle)
-- **Database Consistency**: 100% Invariants Satisfied (No deadlocks, zero double-payments, gapless linear audit chain)
-- **Overall Project Completion**: **100%**
+---
+
+## Measured Test Metrics
+- **C++17 Engine**: 10 / 10 operations passing (100%)
+- **API Test Suite**: 12 / 12 test files passing, 102 / 102 tests passing (100%)
+- **Web Build**: `tsc && vite build` passing with 0 errors
+- **Browser E2E**: Headless Google Chrome walking Terminal PIN Login, POS Floor Plan, and module navigation passing with 0 errors
+- **Unified Verification (`npm run verify`)**: PASS (Exit code 0)

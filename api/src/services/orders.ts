@@ -197,11 +197,20 @@ export async function sendKOT(orderId: string, userId: string) {
     }
 
     // Default station fallback if station_id is null
-    const defStationRes = await client.query(
+    let defStationRes = await client.query(
       `SELECT id FROM kitchen_stations WHERE outlet_id = $1 ORDER BY created_at ASC LIMIT 1`,
       [order.outlet_id]
     );
-    const defaultStationId = defStationRes.rows.length > 0 ? defStationRes.rows[0].id : null;
+    let defaultStationId = defStationRes.rows.length > 0 ? defStationRes.rows[0].id : null;
+    if (!defaultStationId) {
+      const newStation = await client.query(
+        `INSERT INTO kitchen_stations (outlet_id, name, station_code)
+         VALUES ($1, 'Main Kitchen', 'KITCHEN')
+         RETURNING id`,
+        [order.outlet_id]
+      );
+      defaultStationId = newStation.rows[0].id;
+    }
 
     // Group items by station
     const itemsByStation = new Map<string, any[]>();
@@ -260,7 +269,7 @@ export async function sendKOT(orderId: string, userId: string) {
       entity_type: 'ORDER',
       entity_id: orderId,
       after_state: { kots_generated: generatedKots.length },
-    });
+    }, client);
 
     return generatedKots;
   });
@@ -321,7 +330,7 @@ export async function voidOrderItem(
       entity_id: orderItemId,
       before_state: { item_name: item.item_name, quantity: item.quantity, status: item.status },
       after_state: { is_voided: true, reason, approvedBy },
-    });
+    }, client);
 
     return updated.rows[0];
   });

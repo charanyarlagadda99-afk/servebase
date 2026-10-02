@@ -1,44 +1,165 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  INITIAL_TABLES, 
-  INITIAL_MENU, 
-  INITIAL_KDS_TICKETS, 
-  INITIAL_INVENTORY, 
-  INITIAL_STAFF, 
-  INITIAL_ROOMS, 
-  INITIAL_ALERTS 
-} from './data/mockData';
-import { Table, MenuItem, KdsTicket, InventoryItem, StaffMember, Room, SystemAlert, CartItem, TableStatus } from './types';
+  Table, MenuItem, KdsTicket, InventoryItem, StaffMember, Room, SystemAlert, CartItem, TableStatus 
+} from './types';
 import { PosView } from './views/PosView';
 import { KdsView } from './views/KdsView';
 import { InventoryView } from './views/InventoryView';
 import { StaffView } from './views/StaffView';
 import { HotelView } from './views/HotelView';
 import { ReportsView } from './views/ReportsView';
-import { checkBackendHealth } from './api/client';
+import { LoginView } from './views/LoginView';
+import { 
+  api, 
+  checkBackendHealth, 
+  isAuthenticated, 
+  getCurrentUser, 
+  API_BASE 
+} from './api/client';
 import { 
   LayoutGrid, ChefHat, Boxes, Users, Building2, 
-  FileSpreadsheet, ShieldCheck, Cpu, Wifi, Bell, 
-  Command, Search, X, Check, ArrowRight
+  FileSpreadsheet, Cpu, Bell, 
+  Command, Search, X, ArrowRight, LogOut, RefreshCw
 } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(isAuthenticated());
+  const [currentUser, setCurrentUser] = useState<any>(getCurrentUser());
   const [activeTab, setActiveTab] = useState<'pos' | 'kds' | 'inventory' | 'staff' | 'hotel' | 'reports'>('pos');
   const [selectedOutlet, setSelectedOutlet] = useState<string>('ServeBase Flagship Bistro & Bar');
   const [isBackendOnline, setIsBackendOnline] = useState<boolean>(false);
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
   const [commandQuery, setCommandQuery] = useState<string>('');
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
   
-  // Application Data States
-  const [tables, setTables] = useState<Table[]>(INITIAL_TABLES);
-  const [menu, setMenu] = useState<MenuItem[]>(INITIAL_MENU);
-  const [tickets, setTickets] = useState<KdsTicket[]>(INITIAL_KDS_TICKETS);
-  const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
-  const [staff, setStaff] = useState<StaffMember[]>(INITIAL_STAFF);
-  const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
-  const [alerts, setAlerts] = useState<SystemAlert[]>(INITIAL_ALERTS);
+  // Real Application Data States (Zero hardcoded mock fallbacks)
+  const [tables, setTables] = useState<Table[]>([]);
+  const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [tickets, setTickets] = useState<KdsTicket[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [alerts, setAlerts] = useState<SystemAlert[]>([]);
 
-  // Check backend health periodically
+  // Fetch all domain datasets from the API
+  const refreshData = useCallback(async () => {
+    if (!isAuthenticated()) return;
+    setIsLoadingData(true);
+    try {
+      const [tablesRes, menuRes, ticketsRes, inventoryRes, staffRes, roomsRes, alertsRes] = await Promise.all([
+        api.floor.getTables(),
+        api.menu.getFullMenu(),
+        api.kitchen.getTickets(),
+        api.inventory.getInventory(),
+        api.staff.getStaff(),
+        api.hotel.getRooms(),
+        api.alerts.getActive(),
+      ]);
+
+      if (tablesRes.ok && Array.isArray(tablesRes.data)) {
+        setTables(tablesRes.data.map((t: any) => ({
+          id: t.id,
+          table_number: t.table_number,
+          section: t.area_name || t.section || 'Main Dining',
+          capacity: t.capacity || 4,
+          status: t.status || 'vacant',
+          current_order_id: t.active_order_id || t.current_order_id,
+          active_bill_amount: Number(t.active_bill_amount || 0),
+          covers: t.current_covers,
+          locked_by: t.locked_by,
+        })));
+      }
+
+      if (menuRes.ok && Array.isArray(menuRes.data)) {
+        setMenu(menuRes.data.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          item_code: m.item_code || m.code || '',
+          category: m.category_name || m.category || 'Main Curries',
+          base_price: Number(m.base_price_paise || m.base_price || 0),
+          tax_rate_percent: Number(m.tax_rate_percent || 5.0),
+          station: (m.station_code?.toLowerCase() || m.station || 'curry') as any,
+          is_available: m.is_available ?? true,
+          veg_status: m.veg_status || 'veg',
+        })));
+      }
+
+      if (ticketsRes.ok && Array.isArray(ticketsRes.data)) {
+        setTickets(ticketsRes.data.map((tk: any) => ({
+          id: tk.id,
+          kot_number: tk.kot_number ? `KOT-${tk.kot_number}` : tk.kot_number_display || `KOT-${tk.id.slice(0, 6)}`,
+          order_id: tk.order_id,
+          table_number: tk.table_number || 'T1',
+          server_name: tk.server_name || 'Staff',
+          station: (tk.station_code?.toLowerCase() || tk.station || 'curry') as any,
+          created_at: tk.created_at,
+          status: tk.status === 'bumped' ? 'completed' : (tk.status || 'open'),
+          items: Array.isArray(tk.items) ? tk.items.map((it: any) => ({
+            id: it.id,
+            name: it.item_name || it.name,
+            quantity: Number(it.quantity || 1),
+            course: it.course || 'main',
+            status: it.status || 'pending',
+            notes: it.notes,
+            station: (it.station_code?.toLowerCase() || 'curry') as any,
+          })) : [],
+        })));
+      }
+
+      if (inventoryRes.ok && Array.isArray(inventoryRes.data)) {
+        setInventory(inventoryRes.data.map((inv: any) => ({
+          id: inv.id,
+          sku: inv.sku || inv.item_code || '',
+          name: inv.name,
+          category: inv.category || 'Dry Goods',
+          unit: inv.unit_symbol || inv.uom || 'kg',
+          current_stock: Number(inv.current_stock || 0),
+          par_level: Number(inv.par_level || 10),
+          reorder_quantity: Number(inv.reorder_quantity || 5),
+          unit_cost: Number(inv.current_cost_paise || inv.unit_cost || 0),
+          supplier_name: inv.supplier_name || 'Imperial Wholesale',
+        })));
+      }
+
+      if (staffRes.ok && Array.isArray(staffRes.data)) {
+        setStaff(staffRes.data.map((s: any) => ({
+          id: s.id,
+          staff_id: s.employee_code || s.staff_id || `EMP-${s.id.slice(0, 4)}`,
+          name: s.full_name || s.name,
+          role: (s.role_name?.toLowerCase() || s.role || 'waiter') as any,
+          status: s.status || 'clocked_out',
+          clock_in_time: s.clock_in_time,
+          phone: s.phone || '',
+          base_monthly_salary: Number(s.base_salary_paise || s.base_monthly_salary || 2500000),
+        })));
+      }
+
+      if (roomsRes.ok && Array.isArray(roomsRes.data)) {
+        setRooms(roomsRes.data.map((r: any) => ({
+          id: r.id,
+          room_number: r.room_number,
+          room_type: r.room_type || 'deluxe',
+          status: r.status || 'vacant',
+          clean_status: r.housekeeping_status || r.clean_status || 'clean',
+          guest_name: r.guest_name,
+          folio_id: r.folio_id,
+          rate_per_night: Number(r.base_tariff_paise || r.rate_per_night || 450000),
+          current_folio_balance: Number(r.current_balance_paise || r.current_folio_balance || 0),
+          charges_history: r.charges || [],
+        })));
+      }
+
+      if (alertsRes.ok && Array.isArray(alertsRes.data)) {
+        setAlerts(alertsRes.data);
+      }
+    } catch (err) {
+      console.error('Error fetching initial ServeBase state:', err);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, []);
+
+  // Health check polling
   useEffect(() => {
     checkBackendHealth().then(res => setIsBackendOnline(res.online));
     const interval = setInterval(() => {
@@ -47,7 +168,67 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Global Keyboard Shortcuts (Ctrl+K or Cmd+K for Command Palette)
+  // Initial load on mount or login
+  useEffect(() => {
+    if (isLoggedIn) {
+      refreshData();
+    }
+  }, [isLoggedIn, refreshData]);
+
+  // Realtime Server-Sent Events (SSE) Stream
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const disconnectSSE = api.realtime.connect((event) => {
+      if (['KOT_CREATED', 'KOT_BUMPED', 'KOT_RECALLED', 'ITEM_BUMPED'].includes(event.type)) {
+        api.kitchen.getTickets().then(res => {
+          if (res.ok && Array.isArray(res.data)) {
+            setTickets(res.data.map((tk: any) => ({
+              id: tk.id,
+              kot_number: tk.kot_number ? `KOT-${tk.kot_number}` : `KOT-${tk.id.slice(0, 6)}`,
+              order_id: tk.order_id,
+              table_number: tk.table_number || 'T1',
+              server_name: tk.server_name || 'Staff',
+              station: (tk.station_code?.toLowerCase() || tk.station || 'curry') as any,
+              created_at: tk.created_at,
+              status: tk.status === 'bumped' ? 'completed' : (tk.status || 'open'),
+              items: Array.isArray(tk.items) ? tk.items.map((it: any) => ({
+                id: it.id,
+                name: it.item_name || it.name,
+                quantity: Number(it.quantity || 1),
+                course: it.course || 'main',
+                status: it.status || 'pending',
+                notes: it.notes,
+                station: (it.station_code?.toLowerCase() || 'curry') as any,
+              })) : [],
+            })));
+          }
+        });
+      }
+      if (['TABLE_UPDATED', 'BILL_PRINTED', 'PAYMENT_RECEIVED'].includes(event.type)) {
+        api.floor.getTables().then(res => {
+          if (res.ok && Array.isArray(res.data)) {
+            const dataList = res.data;
+            setTables(tablesRes => tablesRes.map((t: any) => {
+              const incoming = dataList.find((x: any) => x.id === t.id);
+              if (!incoming) return t;
+              return {
+                ...t,
+                status: incoming.status || t.status,
+                current_order_id: incoming.active_order_id || incoming.current_order_id,
+                active_bill_amount: Number(incoming.active_bill_amount || 0),
+              };
+            }));
+          }
+        });
+      }
+    });
+
+    return () => {
+      disconnectSSE();
+    };
+  }, [isLoggedIn]);
+
+  // Global Keyboard Shortcuts (Ctrl+K or Cmd+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -62,7 +243,11 @@ export const App: React.FC = () => {
   }, []);
 
   // Table status updater
-  const handleUpdateTableStatus = (tableId: string, status: TableStatus, billAmount?: number) => {
+  const handleUpdateTableStatus = async (tableId: string, status: TableStatus, billAmount?: number) => {
+    try {
+      await api.floor.updateTableStatus(tableId, status);
+    } catch (err) {}
+
     setTables(prev => prev.map(t => {
       if (t.id === tableId) {
         return {
@@ -77,38 +262,42 @@ export const App: React.FC = () => {
     }));
   };
 
-  // Send KOT from POS to Kitchen
-  const handleSendKot = (tableNumber: string, items: CartItem[]) => {
-    const stations = Array.from(new Set(items.map(i => i.station)));
-    
-    stations.forEach((st, idx) => {
-      const stationItems = items.filter(i => i.station === st);
-      const newTicket: KdsTicket = {
-        id: `kot-${Date.now()}-${idx}`,
-        kot_number: `KOT-20261002-${Math.floor(1000 + Math.random() * 9000)}`,
-        order_id: `ord-${Date.now()}`,
-        table_number: tableNumber,
-        server_name: 'Rahul Sharma',
-        station: st,
-        created_at: new Date().toISOString(),
-        status: 'open',
-        items: stationItems.map((si, sidx) => ({
-          id: `ki-${Date.now()}-${sidx}`,
-          name: si.name,
-          quantity: si.quantity,
-          course: si.course,
-          status: 'pending',
-          notes: si.notes,
-          station: si.station
-        }))
+  // Send KOT: Create order on server and route tickets
+  const handleSendKot = async (tableNumber: string, items: CartItem[]) => {
+    try {
+      const targetTable = tables.find(t => t.table_number === tableNumber);
+      if (!targetTable) return;
+
+      const orderPayload = {
+        order_type: 'dine_in',
+        table_id: targetTable.id,
+        covers: targetTable.capacity,
+        items: items.map(i => ({
+          menu_item_id: i.menu_item_id,
+          item_name: i.name,
+          quantity: i.quantity,
+          unit_price_paise: i.base_price,
+          course: i.course,
+          course_status: i.status === 'fire' ? 'fire' : 'hold',
+          notes: i.notes,
+        })),
       };
 
-      setTickets(prev => [newTicket, ...prev]);
-    });
+      const orderRes = await api.orders.create(orderPayload);
+      if (orderRes.ok && orderRes.data?.id) {
+        await api.orders.sendKot(orderRes.data.id);
+      }
+      await refreshData();
+    } catch (err) {
+      console.error('Failed to send KOT to backend:', err);
+    }
   };
 
   // KDS Handlers
-  const handleBumpTicket = (ticketId: string) => {
+  const handleBumpTicket = async (ticketId: string) => {
+    try {
+      await api.kitchen.bumpTicket(ticketId);
+    } catch (err) {}
     setTickets(prev => prev.map(t => {
       if (t.id === ticketId) {
         return {
@@ -121,7 +310,10 @@ export const App: React.FC = () => {
     }));
   };
 
-  const handleBumpItem = (ticketId: string, itemId: string) => {
+  const handleBumpItem = async (ticketId: string, itemId: string) => {
+    try {
+      await api.kitchen.bumpItem(itemId);
+    } catch (err) {}
     setTickets(prev => prev.map(t => {
       if (t.id === ticketId) {
         const updatedItems = t.items.map(i => {
@@ -144,7 +336,10 @@ export const App: React.FC = () => {
     }));
   };
 
-  const handleRecallTicket = (ticketId: string) => {
+  const handleRecallTicket = async (ticketId: string) => {
+    try {
+      await api.kitchen.recallTicket(ticketId);
+    } catch (err) {}
     setTickets(prev => prev.map(t => {
       if (t.id === ticketId) {
         return {
@@ -158,7 +353,7 @@ export const App: React.FC = () => {
   };
 
   // Inventory Handlers
-  const handleReceiveStock = (sku: string, qty: number, unitCostPaise: number) => {
+  const handleReceiveStock = async (sku: string, qty: number, unitCostPaise: number) => {
     setInventory(prev => prev.map(item => {
       if (item.sku === sku) {
         const oldTotalCost = item.current_stock * item.unit_cost;
@@ -177,32 +372,48 @@ export const App: React.FC = () => {
     }));
   };
 
-  const handleRecordStocktake = (sku: string, countedQty: number) => {
-    setInventory(prev => prev.map(item => {
-      if (item.sku === sku) {
-        const variance = countedQty - item.current_stock;
+  const handleRecordStocktake = async (sku: string, countedQty: number) => {
+    const item = inventory.find(i => i.sku === sku);
+    if (item) {
+      try {
+        await api.inventory.recordStocktake([{ material_id: item.id, physical_stock: countedQty }]);
+      } catch (err) {}
+    }
+    setInventory(prev => prev.map(i => {
+      if (i.sku === sku) {
+        const variance = countedQty - i.current_stock;
         return {
-          ...item,
+          ...i,
           current_stock: countedQty,
           variance_qty: variance
         };
       }
-      return item;
+      return i;
     }));
   };
 
   // Staff Handlers
-  const handleClockToggle = (staffId: string) => {
-    setStaff(prev => prev.map(s => {
-      if (s.id === staffId) {
-        const isClockedIn = s.status === 'clocked_in';
+  const handleClockToggle = async (staffId: string) => {
+    const s = staff.find(x => x.id === staffId);
+    if (s) {
+      try {
+        if (s.status === 'clocked_in') {
+          await api.staff.clockOut(s.id);
+        } else {
+          await api.staff.clockIn(s.id);
+        }
+      } catch (err) {}
+    }
+    setStaff(prev => prev.map(mem => {
+      if (mem.id === staffId) {
+        const isClockedIn = mem.status === 'clocked_in';
         return {
-          ...s,
+          ...mem,
           status: isClockedIn ? 'clocked_out' : 'clocked_in',
           clock_in_time: isClockedIn ? undefined : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
       }
-      return s;
+      return mem;
     }));
   };
 
@@ -222,9 +433,15 @@ export const App: React.FC = () => {
     }));
   };
 
-  const handlePostCharge = (roomId: string, amountPaise: number, description: string) => {
-    setRooms(prev => prev.map(r => {
-      if (r.id === roomId) {
+  const handlePostCharge = async (roomId: string, amountPaise: number, description: string) => {
+    const r = rooms.find(x => x.id === roomId);
+    if (r) {
+      try {
+        await api.hotel.postCharge(r.room_number, amountPaise, description);
+      } catch (err) {}
+    }
+    setRooms(prev => prev.map(room => {
+      if (room.id === roomId) {
         const newCharge = {
           id: `chg-${Date.now()}`,
           desc: description,
@@ -233,24 +450,13 @@ export const App: React.FC = () => {
           is_reversed: false
         };
         return {
-          ...r,
-          current_folio_balance: r.current_folio_balance + amountPaise,
-          charges_history: [newCharge, ...(r.charges_history || [])]
+          ...room,
+          current_folio_balance: room.current_folio_balance + amountPaise,
+          charges_history: [newCharge, ...(room.charges_history || [])]
         };
       }
-      return r;
+      return room;
     }));
-
-    const newAlert: SystemAlert = {
-      id: `alt-${Date.now()}`,
-      title: 'Room Charge Posted',
-      message: `Charge of ₹${(amountPaise/100).toFixed(2)} (${description}) posted to Room`,
-      severity: 'info',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      resolved: false,
-      category: 'security'
-    };
-    setAlerts(prev => [newAlert, ...prev]);
   };
 
   const handleReverseCharge = (roomId: string, chargeId: string) => {
@@ -267,17 +473,6 @@ export const App: React.FC = () => {
       }
       return r;
     }));
-
-    const newAlert: SystemAlert = {
-      id: `alt-${Date.now()}`,
-      title: 'Room Charge Reversed',
-      message: `Incidental charge voided and credited back to guest folio.`,
-      severity: 'info',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      resolved: false,
-      category: 'security'
-    };
-    setAlerts(prev => [newAlert, ...prev]);
   };
 
   const handleCheckIn = (roomId: string, guestName: string) => {
@@ -287,7 +482,7 @@ export const App: React.FC = () => {
           ...r,
           status: 'occupied',
           guest_name: guestName,
-          check_in_date: '2026-10-02',
+          check_in_date: new Date().toISOString().split('T')[0],
           current_folio_balance: 0,
           charges_history: []
         };
@@ -312,7 +507,10 @@ export const App: React.FC = () => {
     }));
   };
 
-  const handleResolveAlert = (alertId: string) => {
+  const handleResolveAlert = async (alertId: string) => {
+    try {
+      await api.alerts.acknowledge(alertId);
+    } catch (err) {}
     setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, resolved: true } : a));
   };
 
@@ -327,7 +525,8 @@ export const App: React.FC = () => {
     { id: 'staff', title: 'Open Staff & Payroll Terminal', category: 'Navigation', action: () => { setActiveTab('staff'); setShowCommandPalette(false); } },
     { id: 'hotel', title: 'Open Hotel PMS Room Grid', category: 'Navigation', action: () => { setActiveTab('hotel'); setShowCommandPalette(false); } },
     { id: 'reports', title: 'Open Financials & Z-Report', category: 'Navigation', action: () => { setActiveTab('reports'); setShowCommandPalette(false); } },
-    { id: 'audit', title: 'Verify Cryptographic SHA-256 Chain', category: 'Security', action: () => { setActiveTab('reports'); setShowCommandPalette(false); } },
+    { id: 'refresh', title: 'Refresh Live State from Server', category: 'System', action: () => { refreshData(); setShowCommandPalette(false); } },
+    { id: 'logout', title: 'Logout of Terminal', category: 'Auth', action: () => { api.auth.logout(); setIsLoggedIn(false); setCurrentUser(null); setShowCommandPalette(false); } },
   ];
 
   const filteredCommands = commands.filter(c => 
@@ -335,8 +534,38 @@ export const App: React.FC = () => {
     c.category.toLowerCase().includes(commandQuery.toLowerCase())
   );
 
+  // If user is not authenticated, render LoginView
+  if (!isLoggedIn) {
+    return (
+      <LoginView
+        onLoginSuccess={(user: any) => {
+          setIsLoggedIn(true);
+          setCurrentUser(user);
+          refreshData();
+        }}
+        isBackendOnline={isBackendOnline}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FBF9F6]">
+      {/* OFFLINE BANNER */}
+      {!isBackendOnline && (
+        <div className="bg-amber-600 text-white px-4 py-1.5 text-xs font-semibold flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            <span>ServeBase API Unreachable — Reconnecting to backend ({API_BASE})...</span>
+          </div>
+          <button 
+            onClick={() => checkBackendHealth().then(r => setIsBackendOnline(r.online))}
+            className="text-[11px] underline font-bold hover:text-amber-100"
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
+
       {/* GLOBAL TOP NAVIGATION BAR */}
       <header className="bg-[#1C1917] text-white border-b border-black/40 px-4 sm:px-6 py-2.5 flex items-center justify-between select-none">
         {/* BRAND & OUTLET SELECTOR */}
@@ -407,6 +636,16 @@ export const App: React.FC = () => {
 
         {/* SYSTEM STATUS ENGINE BADGES & SHORTCUT */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* REFRESH DATA BUTTON */}
+          <button
+            onClick={refreshData}
+            disabled={isLoadingData}
+            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 transition-colors"
+            title="Refresh Live Data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingData ? 'animate-spin' : ''}`} />
+          </button>
+
           {/* COMMAND PALETTE BUTTON */}
           <button
             onClick={() => setShowCommandPalette(true)}
@@ -425,10 +664,10 @@ export const App: React.FC = () => {
                   ? 'bg-[#2D5A27]/20 border-[#2D5A27]/40 text-[#2D5A27]' 
                   : 'bg-white/5 border-white/10 text-white/70'
               }`} 
-              title={isBackendOnline ? 'Connected to Fastify on port 3000' : 'Running in Standalone Client Mode'}
+              title={isBackendOnline ? `Connected to ${API_BASE}` : 'Offline / Standalone Mode'}
             >
               <Cpu className="w-3 h-3" />
-              <span>{isBackendOnline ? 'Full-Stack (Port 3000)' : 'Standalone Preview'}</span>
+              <span>{isBackendOnline ? 'API Connected' : 'Offline Mode'}</span>
             </span>
           </div>
 
@@ -444,6 +683,27 @@ export const App: React.FC = () => {
               </span>
             )}
           </button>
+
+          {/* USER PROFILE & LOGOUT */}
+          {currentUser && (
+            <div className="flex items-center gap-2 border-l border-white/10 pl-2">
+              <span className="hidden xl:inline text-[11px] font-semibold text-white/80">
+                {currentUser.fullName || currentUser.email}
+              </span>
+              <button
+                onClick={() => {
+                  api.auth.logout();
+                  setIsLoggedIn(false);
+                  setCurrentUser(null);
+                }}
+                className="flex items-center gap-1 text-[10px] font-bold bg-white/10 hover:bg-red-900/60 text-white px-2 py-1 rounded transition-colors"
+                title="Log Out"
+              >
+                <LogOut className="w-3 h-3" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

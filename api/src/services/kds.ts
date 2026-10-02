@@ -43,8 +43,14 @@ export async function getStationQueue(
   const params: any[] = [outletId];
 
   if (stationId) {
-    params.push(stationId);
-    filterClause += ` AND k.station_id = $${params.length}`;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stationId);
+    if (isUuid) {
+      params.push(stationId);
+      filterClause += ` AND k.station_id = $${params.length}`;
+    } else {
+      params.push(`%${stationId}%`);
+      filterClause += ` AND (s.station_code ILIKE $${params.length} OR s.name ILIKE $${params.length})`;
+    }
   }
 
   if (!showBumped) {

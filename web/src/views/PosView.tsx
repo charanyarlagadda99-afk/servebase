@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Table, MenuItem, CartItem, Course, CourseStatus, TableStatus } from '../types';
+import { api } from '../api/client';
 import { formatRupees } from '../utils/currency';
 import { 
   Users, Utensils, Clock, AlertCircle, CheckCircle2, 
@@ -68,44 +69,26 @@ export const PosView: React.FC<PosViewProps> = ({
       setCoversInput(table.capacity);
       setDiscountPercent(0);
       setServiceChargeEnabled(false);
-    } else if (table.status === 'occupied' || table.status === 'billed') {
-      // Load current table items
-      setCart([
-        {
-          id: `cart-${Date.now()}-1`,
-          menu_item_id: 'menu-1',
-          name: 'Paneer Tikka Angaarey',
-          base_price: 38000,
-          quantity: 1,
-          course: 'starter',
-          status: 'fire',
-          station: 'tandoor',
-          seat_number: 1,
-          notes: 'Extra mint chutney'
-        },
-        {
-          id: `cart-${Date.now()}-2`,
-          menu_item_id: 'menu-5',
-          name: 'Butter Chicken Grand Trunk',
-          base_price: 54000,
-          quantity: 1,
-          course: 'main',
-          status: 'hold',
-          station: 'curry',
-          seat_number: 2
-        },
-        {
-          id: `cart-${Date.now()}-3`,
-          menu_item_id: 'menu-10',
-          name: 'Tandoori Garlic Butter Naan',
-          base_price: 11000,
-          quantity: 2,
-          course: 'main',
-          status: 'hold',
-          station: 'tandoor',
-          seat_number: 1
+    } else if (table.current_order_id) {
+      api.orders.get(table.current_order_id).then((res: any) => {
+        if (res.ok && res.data?.items) {
+          setCart(res.data.items.map((i: any) => ({
+            id: i.id,
+            menu_item_id: i.menu_item_id,
+            name: i.item_name || i.name,
+            base_price: Number(i.unit_price_paise),
+            quantity: Number(i.quantity),
+            course: (i.course || 'main') as Course,
+            status: (i.course_status || (i.status === 'sent' ? 'fire' : 'hold')) as CourseStatus,
+            station: i.station || 'curry',
+            notes: i.notes,
+          })));
+        } else {
+          setCart([]);
         }
-      ]);
+      }).catch(() => setCart([]));
+    } else {
+      setCart([]);
     }
   };
 
@@ -165,24 +148,40 @@ export const PosView: React.FC<PosViewProps> = ({
     }
   };
 
-  const handleManagerApproval = () => {
+  const handleManagerApproval = async () => {
     if (managerPin.length !== 4) {
       setManagerError('Please enter a valid 4-digit Manager PIN');
       return;
     }
 
-    if (managerActionType === 'void' && pendingVoidItemId) {
-      setCart(prev => prev.filter(i => i.id !== pendingVoidItemId));
-      setPaymentSuccessMsg(`Manager override approved: Item voided with reason "${managerReason}"`);
-      setShowManagerModal(false);
-      setPendingVoidItemId(null);
-      setTimeout(() => setPaymentSuccessMsg(null), 3500);
-    } else if (managerActionType === 'discount') {
-      setDiscountPercent(pendingDiscountValue);
-      setPaymentSuccessMsg(`Manager override approved: ${pendingDiscountValue}% discount applied.`);
-      setShowManagerModal(false);
-      setShowDiscountModal(false);
-      setTimeout(() => setPaymentSuccessMsg(null), 3500);
+    try {
+      const res = await api.auth.approve(
+        managerPin,
+        managerActionType,
+        managerReason,
+        pendingVoidItemId || selectedTable?.id
+      );
+
+      if (!res.ok) {
+        setManagerError(res.error?.message || 'Manager PIN authorization failed');
+        return;
+      }
+
+      if (managerActionType === 'void' && pendingVoidItemId) {
+        setCart(prev => prev.filter(i => i.id !== pendingVoidItemId));
+        setPaymentSuccessMsg(`Manager override approved: Item voided with reason "${managerReason}"`);
+        setShowManagerModal(false);
+        setPendingVoidItemId(null);
+        setTimeout(() => setPaymentSuccessMsg(null), 3500);
+      } else if (managerActionType === 'discount') {
+        setDiscountPercent(pendingDiscountValue);
+        setPaymentSuccessMsg(`Manager override approved: ${pendingDiscountValue}% discount applied.`);
+        setShowManagerModal(false);
+        setShowDiscountModal(false);
+        setTimeout(() => setPaymentSuccessMsg(null), 3500);
+      }
+    } catch (err: any) {
+      setManagerError(err.message || 'Authorization network error');
     }
   };
 
@@ -212,19 +211,82 @@ export const PosView: React.FC<PosViewProps> = ({
     }));
   };
 
-  // FINANCIAL & TAX CALCULATIONS (All in integer paise)
-  const subtotal = cart.reduce((acc, item) => acc + (item.base_price * item.quantity), 0);
-  const discountAmount = Math.round((subtotal * discountPercent) / 100);
-  const netSubtotal = Math.max(0, subtotal - discountAmount);
+  // FINANCIAL & TAX CALCULATIONS (Native C++ Engine via API)
+  const [pricing, setPricing] = useState({
+    subtotal_paise: 0,
+    item_discount_paise: 0,
+    bill_discount_paise: 0,
+    taxable_value_paise: 0,
+    cgst_paise: 0,
+    sgst_paise: 0,
+    igst_paise: 0,
+    service_charge_paise: 0,
+    tip_paise: 0,
+    round_off_paise: 0,
+    total_paise: 0,
+  });
 
-  // Indian GST Rules: 5% Non-ITC (2.5% CGST + 2.5% SGST) applied strictly on food/beverage net subtotal
-  const cgst = Math.round(netSubtotal * 0.025);
-  const sgst = Math.round(netSubtotal * 0.025);
-  const totalTax = cgst + sgst;
+  const [splitShares, setSplitShares] = useState<Array<{ split_index: number; total_paise: number }>>([]);
 
-  // Service Charge: Default OFF, never taxed under Indian GST rules
-  const serviceChargeAmount = serviceChargeEnabled ? Math.round(netSubtotal * 0.05) : 0;
-  const grandTotal = netSubtotal + totalTax + serviceChargeAmount;
+  useEffect(() => {
+    if (cart.length === 0) {
+      setPricing({
+        subtotal_paise: 0,
+        item_discount_paise: 0,
+        bill_discount_paise: 0,
+        taxable_value_paise: 0,
+        cgst_paise: 0,
+        sgst_paise: 0,
+        igst_paise: 0,
+        service_charge_paise: 0,
+        tip_paise: 0,
+        round_off_paise: 0,
+        total_paise: 0,
+      });
+      return;
+    }
+
+    let active = true;
+    api.billing.calculate({
+      items: cart.map(i => ({
+        item_id: i.menu_item_id,
+        name: i.name,
+        quantity: i.quantity,
+        unit_price_paise: i.base_price,
+        tax_rate_percent: 5.0,
+      })),
+      bill_discount_percent: discountPercent,
+      service_charge_enabled: serviceChargeEnabled,
+      service_charge_percent: serviceChargeEnabled ? 5.0 : 0.0,
+    }).then(res => {
+      if (active && res.ok && res.data) {
+        setPricing(res.data);
+      }
+    }).catch(() => {});
+
+    return () => { active = false; };
+  }, [cart, discountPercent, serviceChargeEnabled]);
+
+  const subtotal = pricing.subtotal_paise;
+  const discountAmount = pricing.bill_discount_paise;
+  const cgst = pricing.cgst_paise;
+  const sgst = pricing.sgst_paise;
+  const totalTax = pricing.cgst_paise + pricing.sgst_paise;
+  const serviceChargeAmount = pricing.service_charge_paise;
+  const grandTotal = pricing.total_paise;
+
+  useEffect(() => {
+    if (grandTotal <= 0) return;
+    api.billing.split({
+      bill: { total_paise: grandTotal, subtotal_paise: subtotal },
+      split_type: 'equal',
+      num_parts: splitCount,
+    }).then(res => {
+      if (res.ok && res.data?.splits) {
+        setSplitShares(res.data.splits);
+      }
+    }).catch(() => {});
+  }, [grandTotal, splitCount, subtotal]);
 
   const handleSendKotClick = () => {
     if (!selectedTable || cart.length === 0) return;
@@ -243,8 +305,22 @@ export const PosView: React.FC<PosViewProps> = ({
     setTimeout(() => setPaymentSuccessMsg(null), 3000);
   };
 
-  const handleCompletePayment = () => {
+  const handleCompletePayment = async () => {
     if (!selectedTable) return;
+    try {
+      if (selectedTable.current_order_id) {
+        const invRes = await api.billing.invoice(selectedTable.current_order_id);
+        if (invRes.ok && invRes.data?.id) {
+          await api.payments.record({
+            invoice_id: invRes.data.id,
+            payment_method: paymentMethod === 'room' ? 'charge_to_room' : paymentMethod,
+            amount_paise: grandTotal,
+          });
+        }
+      }
+      await api.floor.updateTableStatus(selectedTable.id, 'vacant');
+    } catch (err) {}
+
     onUpdateTableStatus(selectedTable.id, 'vacant');
     setShowPaymentModal(false);
     setPaymentSuccessMsg(`Tax Invoice settled via ${paymentMethod.toUpperCase()} (${formatRupees(grandTotal)}). Table ${selectedTable.table_number} is now vacant.`);
@@ -886,7 +962,11 @@ export const PosView: React.FC<PosViewProps> = ({
                   </div>
                   <div className="flex justify-between text-xs font-bold text-[#D9531E] pt-2 border-t border-[#E7E2DC]">
                     <span>Each Share:</span>
-                    <span className="font-mono">{formatRupees(Math.round(grandTotal / splitCount))}</span>
+                    <span className="font-mono">
+                      {splitShares.length > 0
+                        ? `${formatRupees(splitShares[0].total_paise)}${splitShares.some(s => s.total_paise !== splitShares[0].total_paise) ? ' (exact split)' : ''}`
+                        : formatRupees(Math.round(grandTotal / splitCount))}
+                    </span>
                   </div>
                 </div>
               </div>

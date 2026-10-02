@@ -340,7 +340,10 @@ export async function runSeed(daysToGenerate = 90) {
 // Standalone execution check
 if (process.argv[1]?.endsWith('seed.ts') || process.argv[1]?.endsWith('seed.js')) {
   runSeed(90)
-    .then(() => pool.end())
+    .then(async () => {
+      await pool.end();
+      process.exit(0);
+    })
     .catch((err) => {
       console.error('[SEED] Failed:', err);
       process.exit(1);

@@ -5,7 +5,7 @@ import { recordAudit } from './audit.js';
 export interface ProcessPaymentInput {
   outlet_id: string;
   invoice_id: string;
-  order_id: string;
+  order_id?: string;
   payment_method: 'cash' | 'card' | 'upi' | 'wallet' | 'voucher' | 'house_account' | 'charge_to_room';
   amount_paise: number;
   idempotency_key: string;
@@ -83,6 +83,7 @@ export async function processPayment(input: ProcessPaymentInput) {
     }
 
     // 4. Record payment
+    const orderId = input.order_id || invoice.order_id;
     const simulatedRef = input.gateway_ref || `SIM-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const pmtRes = await client.query(
       `INSERT INTO payments (
@@ -93,7 +94,7 @@ export async function processPayment(input: ProcessPaymentInput) {
       [
         input.outlet_id,
         input.invoice_id,
-        input.order_id,
+        orderId,
         input.payment_method,
         input.amount_paise,
         input.idempotency_key,
@@ -119,7 +120,7 @@ export async function processPayment(input: ProcessPaymentInput) {
       // Mark order paid
       await client.query(
         `UPDATE orders SET status = 'paid', updated_at = NOW(), version = version + 1 WHERE id = $1`,
-        [input.order_id]
+        [orderId]
       );
 
       // Free or clean table

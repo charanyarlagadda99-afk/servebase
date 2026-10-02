@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SystemAlert, ZReportSummary, MenuEngineeringItem, AggregatorOrder } from '../types';
-import { INITIAL_MENU_ENGINEERING, INITIAL_AGGREGATOR_ORDERS } from '../data/mockData';
+import { api } from '../api/client';
 import { formatRupees } from '../utils/currency';
 import { 
   FileSpreadsheet, ShieldAlert, CheckCircle2, TrendingUp, 
@@ -22,6 +22,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [dayCloseDone, setDayCloseDone] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [selectedQuadrant, setSelectedQuadrant] = useState<'all' | 'star' | 'plowhorse' | 'puzzle' | 'dog'>('all');
+  const [menuEngineeringItems, setMenuEngineeringItems] = useState<MenuEngineeringItem[]>([]);
+  const [aggregatorOrders, setAggregatorOrders] = useState<AggregatorOrder[]>([]);
+
+  useEffect(() => {
+    api.reports.getMenuEngineering().then(res => {
+      if (res.ok && res.data?.items) {
+        setMenuEngineeringItems(res.data.items);
+      }
+    }).catch(() => {});
+
+    api.channels.getPayoutReconciliation().then(res => {
+      if (res.ok && Array.isArray(res.data)) {
+        setAggregatorOrders(res.data);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Sample Z-report numbers
   const zReportData: ZReportSummary = {
@@ -87,8 +103,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   };
 
   const filteredMenuItems = selectedQuadrant === 'all'
-    ? INITIAL_MENU_ENGINEERING
-    : INITIAL_MENU_ENGINEERING.filter(i => i.quadrant === selectedQuadrant);
+    ? menuEngineeringItems
+    : menuEngineeringItems.filter(i => i.quadrant === selectedQuadrant);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#FBF9F6] overflow-hidden">
@@ -401,33 +417,39 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
               {/* AGGREGATOR CARDS */}
               <div className="space-y-3">
-                {INITIAL_AGGREGATOR_ORDERS.map(order => (
-                  <div key={order.id} className="border border-[#E7E2DC] rounded-xl p-3.5 bg-[#FAF8F5] flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${
-                          order.channel === 'Zomato' ? 'bg-red-600' : 'bg-orange-500'
-                        }`}>
-                          {order.channel}
-                        </span>
-                        <span className="font-mono font-bold text-xs text-[#1C1917]">{order.order_id}</span>
-                        <span className="text-[10px] text-[#8C827A]">({order.placed_at})</span>
-                      </div>
-                      <p className="text-xs font-semibold text-[#1C1917]">{order.items_summary}</p>
-                      <div className="text-[10px] text-[#8C827A] mt-1">
-                        Customer: <strong>{order.customer_name}</strong> • Rider: <strong>{order.rider_name}</strong> ({order.rider_phone})
-                      </div>
-                    </div>
-
-                    <div className="text-right sm:border-l sm:border-[#E7E2DC] sm:pl-4">
-                      <span className="text-xs text-[#8C827A] block">Net Settlement Payout:</span>
-                      <span className="text-sm font-bold font-serif text-[#2D5A27]">{formatRupees(order.net_payout)}</span>
-                      <span className="text-[10px] text-[#8C827A] block">
-                        Gross {formatRupees(order.gross_amount)} - 18% Comm ({formatRupees(order.commission_amount)})
-                      </span>
-                    </div>
+                {aggregatorOrders.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-[#8C827A] border border-dashed border-[#E7E2DC] rounded-xl bg-[#FAF8F5]">
+                    No aggregator orders recorded for this business date.
                   </div>
-                ))}
+                ) : (
+                  aggregatorOrders.map(order => (
+                    <div key={order.id} className="border border-[#E7E2DC] rounded-xl p-3.5 bg-[#FAF8F5] flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${
+                            order.channel === 'Zomato' ? 'bg-red-600' : 'bg-orange-500'
+                          }`}>
+                            {order.channel}
+                          </span>
+                          <span className="font-mono font-bold text-xs text-[#1C1917]">{order.order_id}</span>
+                          <span className="text-[10px] text-[#8C827A]">({order.placed_at || 'Just now'})</span>
+                        </div>
+                        <p className="text-xs font-semibold text-[#1C1917]">{order.items_summary || 'Multi-item delivery order'}</p>
+                        <div className="text-[10px] text-[#8C827A] mt-1">
+                          Customer: <strong>{order.customer_name || 'Guest'}</strong> • Rider: <strong>{order.rider_name || 'Assigned'}</strong> ({order.rider_phone || 'Simulated'})
+                        </div>
+                      </div>
+
+                      <div className="text-right sm:border-l sm:border-[#E7E2DC] sm:pl-4">
+                        <span className="text-xs text-[#8C827A] block">Net Settlement Payout:</span>
+                        <span className="text-sm font-bold font-serif text-[#2D5A27]">{formatRupees(order.net_payout || (order as any).net_payout_paise || 0)}</span>
+                        <span className="text-[10px] text-[#8C827A] block">
+                          Gross {formatRupees(order.gross_amount || (order as any).gross_paise || 0)} - 18% Comm ({formatRupees(order.commission_amount || (order as any).commission_paise || 0)})
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

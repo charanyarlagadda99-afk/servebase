@@ -1,4 +1,4 @@
-import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import readline from 'readline';
 import { fileURLToPath } from 'url';
@@ -13,7 +13,7 @@ interface PendingRequest {
 }
 
 class CoreWorker {
-  private process: ChildProcessWithoutNullStreams | null = null;
+  private process: ChildProcess | null = null;
   private pendingRequests = new Map<string, PendingRequest>();
   private binaryPath: string;
   public isBusy = false;
@@ -32,7 +32,7 @@ class CoreWorker {
     this.isAlive = true;
 
     const rl = readline.createInterface({
-      input: this.process.stdout,
+      input: this.process.stdout!,
       terminal: false,
     });
 
@@ -76,7 +76,7 @@ class CoreWorker {
   }
 
   public execute(id: string, op: string, payload: any): Promise<any> {
-    if (!this.isAlive || !this.process || !this.process.stdin.writable) {
+    if (!this.isAlive || !this.process || !this.process.stdin || !this.process.stdin.writable) {
       return Promise.reject(new Error('Core worker is offline'));
     }
 
@@ -90,7 +90,7 @@ class CoreWorker {
       this.isBusy = true;
 
       const reqLine = JSON.stringify({ id, op, payload }) + '\n';
-      this.process.stdin.write(reqLine, 'utf8');
+      this.process!.stdin!.write(reqLine, 'utf8');
     });
   }
 
