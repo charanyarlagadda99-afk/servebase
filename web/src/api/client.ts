@@ -1,13 +1,8 @@
 // ServeBase Production Typed API Client
-// All requests flow through this client to the Fastify + C++ Core Engine backend.
-// Zero mock data fallbacks in production paths.
+// All requests go to the real Fastify + C++ Core Engine backend.
+// If the API is unreachable, show an honest offline state. Never fake data.
 
 export const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
-
-export const isBrowserPublicDomain = typeof window !== 'undefined' && 
-  window.location.hostname !== 'localhost' && 
-  window.location.hostname !== '127.0.0.1' &&
-  !(import.meta as any).env?.VITE_API_URL;
 
 const TOKEN_KEY = 'sb_auth_token';
 const USER_KEY = 'sb_current_user';
@@ -56,20 +51,19 @@ export interface ApiResponse<T = any> {
     message: string;
     details?: any;
   };
-  simulated?: boolean;
 }
+
+// Tracks whether the API is reachable. UI reads this to show offline banner.
+let _apiOnline = true;
+export function isApiOnline(): boolean { return _apiOnline; }
 
 async function apiRequest<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  if (isBrowserPublicDomain) {
-    return getSimulatedFallback(path, options) as ApiResponse<T>;
-  }
-
   const url = `${API_BASE}${path}`;
   const headers = new Headers(options.headers || {});
-  
+
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
@@ -85,16 +79,13 @@ async function apiRequest<T = any>(
   }
 
   try {
-    const res = await fetch(url, {
-      ...options,
-      headers,
-    });
+    const res = await fetch(url, { ...options, headers });
+    _apiOnline = true;
 
     const json = await res.json().catch(() => null);
 
     if (!res.ok) {
-      if (res.status === 401 && !path.includes('/auth/login') && !path.includes('/auth/pin-login') && !path.includes('/auth/terminal-pin')) {
-        // Token expired or invalid
+      if (res.status === 401 && !path.includes('/auth/login') && !path.includes('/auth/pin-login')) {
         removeAuthToken();
       }
       return {
@@ -108,395 +99,26 @@ async function apiRequest<T = any>(
 
     return json || { ok: true };
   } catch (err: any) {
-    // If backend is unreachable (e.g. static Vercel deployment), provide simulated fallback
-    return getSimulatedFallback(path, options) as ApiResponse<T>;
-  }
-}
-
-export function getSimulatedFallback(path: string, options: RequestInit = {}): ApiResponse<any> {
-  const body = options.body ? (typeof options.body === 'string' ? JSON.parse(options.body) : options.body) : {};
-
-  // System Health
-  if (path.includes('/health')) {
+    _apiOnline = false;
     return {
-      ok: true,
-      data: {
-        status: 'ok',
-        database: 'connected (simulated)',
-        core_engine: 'active (simulated)',
+      ok: false,
+      error: {
+        code: 'NETWORK_ERROR',
+        message: 'Cannot reach the ServeBase API. Check that the server is running.',
       },
-      simulated: true,
     };
   }
-
-  // Auth: Terminal PIN
-  if (path.includes('/auth/pin-login') || path.includes('/auth/terminal-pin')) {
-    const pin = body.pin || '1234';
-    const isCashier = pin === '5678';
-    return {
-      ok: true,
-      data: {
-        token: 'simulated_jwt_token',
-        user: {
-          id: isCashier ? 'u2' : 'u1',
-          fullName: isCashier ? 'Pooja Verma (Cashier)' : 'Rajiv Singhania (General Manager)',
-          roleName: isCashier ? 'Cashier' : 'General Manager',
-          permissions: ['*'],
-          discountCapPercent: isCashier ? 10 : 100,
-        },
-      },
-      simulated: true,
-    };
-  }
-
-  // Auth: Password Login
-  if (path.includes('/auth/login')) {
-    return {
-      ok: true,
-      data: {
-        token: 'simulated_jwt_token',
-        user: {
-          id: 'u1',
-          fullName: 'Rajiv Singhania (General Manager)',
-          roleName: 'General Manager',
-          permissions: ['*'],
-          discountCapPercent: 100,
-        },
-      },
-      simulated: true,
-    };
-  }
-
-  // Auth: Manager Approval
-  if (path.includes('/auth/approve')) {
-    return {
-      ok: true,
-      data: { approved: true, approverId: 'sim-mgr-01', approvalId: 'sim-app-01' },
-      simulated: true,
-    };
-  }
-
-  // Floor Tables
-  if (path.includes('/floor/tables')) {
-    return {
-      ok: true,
-      data: [
-        { id: 't1', table_number: 'T1', area_name: 'Main Royal Hall', capacity: 4, status: 'vacant' },
-        { id: 't2', table_number: 'T2', area_name: 'Main Royal Hall', capacity: 2, status: 'occupied', active_bill_amount: 98000, current_covers: 2, current_order_id: 'ord-sim-2' },
-        { id: 't3', table_number: 'T3', area_name: 'Main Royal Hall', capacity: 6, status: 'vacant' },
-        { id: 't4', table_number: 'T4', area_name: 'Terrace Courtyard', capacity: 4, status: 'billed', active_bill_amount: 145000, current_covers: 4, current_order_id: 'ord-sim-4' },
-        { id: 't5', table_number: 'T5', area_name: 'Terrace Courtyard', capacity: 4, status: 'vacant' },
-        { id: 't6', table_number: 'T6', area_name: 'Terrace Courtyard', capacity: 8, status: 'reserved' },
-        { id: 't7', table_number: 'B1', area_name: 'Bar & Lounge', capacity: 2, status: 'vacant' },
-        { id: 't8', table_number: 'B2', area_name: 'Bar & Lounge', capacity: 4, status: 'occupied', active_bill_amount: 56000, current_covers: 2, current_order_id: 'ord-sim-8' },
-      ],
-      simulated: true,
-    };
-  }
-
-  // Floor Sections / Areas
-  if (path.includes('/floor/sections') || path.includes('/floor/areas')) {
-    return {
-      ok: true,
-      data: [
-        { id: 'sec-1', name: 'Main Royal Hall', table_count: 3 },
-        { id: 'sec-2', name: 'Terrace Courtyard', table_count: 3 },
-        { id: 'sec-3', name: 'Bar & Lounge', table_count: 2 },
-      ],
-      simulated: true,
-    };
-  }
-
-  // Menu Catalog
-  if (path.includes('/menu')) {
-    return {
-      ok: true,
-      data: [
-        { id: 'm1', name: 'Paneer Tikka Angaarey', category_name: 'Starters', base_price_paise: 38000, tax_rate_percent: 5.0, station_code: 'tandoor', veg_status: 'veg', is_available: true },
-        { id: 'm2', name: 'Dahi Ke Kebab', category_name: 'Starters', base_price_paise: 34000, tax_rate_percent: 5.0, station_code: 'pantry', veg_status: 'veg', is_available: true },
-        { id: 'm3', name: 'Murgh Malai Tikka', category_name: 'Starters', base_price_paise: 46000, tax_rate_percent: 5.0, station_code: 'tandoor', veg_status: 'non_veg', is_available: true },
-        { id: 'm4', name: 'Seekh Kebab Gilafi', category_name: 'Starters', base_price_paise: 49000, tax_rate_percent: 5.0, station_code: 'tandoor', veg_status: 'non_veg', is_available: true },
-        { id: 'm5', name: 'Butter Chicken Grand Trunk', category_name: 'Main Curries', base_price_paise: 54000, tax_rate_percent: 5.0, station_code: 'curry', veg_status: 'non_veg', is_available: true },
-        { id: 'm6', name: 'Dal Makhani Bukhara', category_name: 'Main Curries', base_price_paise: 39000, tax_rate_percent: 5.0, station_code: 'curry', veg_status: 'veg', is_available: true },
-        { id: 'm7', name: 'Paneer Lababdar', category_name: 'Main Curries', base_price_paise: 44000, tax_rate_percent: 5.0, station_code: 'curry', veg_status: 'veg', is_available: true },
-        { id: 'm8', name: 'Dum Biryani Awadhi', category_name: 'Biryani & Breads', base_price_paise: 48000, tax_rate_percent: 5.0, station_code: 'curry', veg_status: 'non_veg', is_available: true },
-        { id: 'm9', name: 'Tandoori Garlic Butter Naan', category_name: 'Biryani & Breads', base_price_paise: 11000, tax_rate_percent: 5.0, station_code: 'tandoor', veg_status: 'veg', is_available: true },
-        { id: 'm10', name: 'Roomali Roti', category_name: 'Biryani & Breads', base_price_paise: 8000, tax_rate_percent: 5.0, station_code: 'tandoor', veg_status: 'veg', is_available: true },
-        { id: 'm11', name: 'Kesari Phirni', category_name: 'Desserts', base_price_paise: 22000, tax_rate_percent: 5.0, station_code: 'dessert', veg_status: 'veg', is_available: true },
-        { id: 'm12', name: 'Gulab Jamun Shahi', category_name: 'Desserts', base_price_paise: 18000, tax_rate_percent: 5.0, station_code: 'dessert', veg_status: 'veg', is_available: true },
-        { id: 'm13', name: 'Masala Chaas', category_name: 'Beverages', base_price_paise: 14000, tax_rate_percent: 5.0, station_code: 'bar', veg_status: 'veg', is_available: true },
-        { id: 'm14', name: 'Darjeeling Fresh Lime Soda', category_name: 'Beverages', base_price_paise: 16000, tax_rate_percent: 5.0, station_code: 'bar', veg_status: 'veg', is_available: true },
-      ],
-      simulated: true,
-    };
-  }
-
-  // KDS Queue
-  if (path.includes('/kitchen/queue') || path.includes('/kitchen/tickets')) {
-    return {
-      ok: true,
-      data: [
-        {
-          id: 'kot-sim-1',
-          kot_number: 101,
-          table_number: 'T2',
-          server_name: 'Rahul',
-          station_code: 'tandoor',
-          status: 'open',
-          created_at: new Date(Date.now() - 14 * 60000).toISOString(),
-          items: [
-            { id: 'ki-1', item_name: 'Paneer Tikka Angaarey', quantity: 1, course: 'starter', status: 'pending', notes: 'Extra crispy' }
-          ]
-        },
-        {
-          id: 'kot-sim-2',
-          kot_number: 102,
-          table_number: 'T4',
-          server_name: 'Pooja',
-          station_code: 'curry',
-          status: 'open',
-          created_at: new Date(Date.now() - 8 * 60000).toISOString(),
-          items: [
-            { id: 'ki-2', item_name: 'Butter Chicken Grand Trunk', quantity: 2, course: 'main', status: 'preparing' },
-            { id: 'ki-3', item_name: 'Dal Makhani Bukhara', quantity: 1, course: 'main', status: 'ready' }
-          ]
-        },
-        {
-          id: 'kot-sim-3',
-          kot_number: 103,
-          table_number: 'B2',
-          server_name: 'Rohan',
-          station_code: 'bar',
-          status: 'open',
-          created_at: new Date(Date.now() - 3 * 60000).toISOString(),
-          items: [
-            { id: 'ki-4', item_name: 'Darjeeling Fresh Lime Soda', quantity: 2, course: 'beverage', status: 'ready', notes: 'Less ice' }
-          ]
-        }
-      ],
-      simulated: true,
-    };
-  }
-
-  // Billing calculation
-  if (path.includes('/billing/calculate')) {
-    const items = body.items || [];
-    const subtotal = items.reduce((sum: number, it: any) => sum + (it.unit_price_paise * (it.quantity || 1)), 0);
-    const discPct = body.bill_discount_percent || 0;
-    const itemDisc = Math.round((subtotal * discPct) / 100);
-    const taxable = Math.max(0, subtotal - itemDisc);
-    const cgst = Math.round(taxable * 0.025);
-    const sgst = Math.round(taxable * 0.025);
-    const sc = body.service_charge_enabled ? Math.round(taxable * 0.05) : 0;
-    const total = taxable + cgst + sgst + sc;
-    return {
-      ok: true,
-      data: {
-        subtotal_paise: subtotal,
-        item_discount_paise: itemDisc,
-        bill_discount_paise: itemDisc,
-        taxable_value_paise: taxable,
-        cgst_paise: cgst,
-        sgst_paise: sgst,
-        igst_paise: 0,
-        service_charge_paise: sc,
-        tip_paise: 0,
-        round_off_paise: 0,
-        total_paise: total,
-      },
-      simulated: true,
-    };
-  }
-
-  // Billing split
-  if (path.includes('/billing/split')) {
-    const total = body.bill?.total_paise || 0;
-    const n = body.num_parts || 2;
-    const each = Math.floor(total / n);
-    const rem = total - (each * n);
-    const splits = Array.from({ length: n }).map((_, i) => ({
-      split_index: i + 1,
-      total_paise: each + (i < rem ? 1 : 0),
-    }));
-    return {
-      ok: true,
-      data: { splits },
-      simulated: true,
-    };
-  }
-
-  // Orders lookup
-  if (path.includes('/orders/ord-sim-2')) {
-    return {
-      ok: true,
-      data: {
-        id: 'ord-sim-2',
-        table_id: 't2',
-        status: 'occupied',
-        items: [
-          { id: 'oi-1', menu_item_id: 'm1', name: 'Paneer Tikka Angaarey', unit_price_paise: 38000, quantity: 1, course: 'starter', status: 'sent', station: 'tandoor' },
-          { id: 'oi-2', menu_item_id: 'm5', name: 'Butter Chicken Grand Trunk', unit_price_paise: 54000, quantity: 1, course: 'main', status: 'sent', station: 'curry' },
-        ]
-      },
-      simulated: true,
-    };
-  }
-
-  if (path.includes('/orders/ord-sim-4')) {
-    return {
-      ok: true,
-      data: {
-        id: 'ord-sim-4',
-        table_id: 't4',
-        status: 'billed',
-        items: [
-          { id: 'oi-3', menu_item_id: 'm5', name: 'Butter Chicken Grand Trunk', unit_price_paise: 54000, quantity: 2, course: 'main', status: 'sent', station: 'curry' },
-          { id: 'oi-4', menu_item_id: 'm9', name: 'Tandoori Garlic Butter Naan', unit_price_paise: 11000, quantity: 3, course: 'main', status: 'sent', station: 'tandoor' },
-        ]
-      },
-      simulated: true,
-    };
-  }
-
-  if (path.includes('/orders/ord-sim-8')) {
-    return {
-      ok: true,
-      data: {
-        id: 'ord-sim-8',
-        table_id: 't8',
-        status: 'occupied',
-        items: [
-          { id: 'oi-5', menu_item_id: 'm14', name: 'Darjeeling Fresh Lime Soda', unit_price_paise: 16000, quantity: 2, course: 'beverage', status: 'sent', station: 'bar' },
-          { id: 'oi-6', menu_item_id: 'm2', name: 'Dahi Ke Kebab', unit_price_paise: 34000, quantity: 1, course: 'starter', status: 'sent', station: 'pantry' },
-        ]
-      },
-      simulated: true,
-    };
-  }
-
-  // Invoice creation
-  if (path.includes('/billing/invoice')) {
-    return {
-      ok: true,
-      data: { id: `inv-sim-${Date.now()}`, invoice_number: `T1/26-27/${Math.floor(1000 + Math.random() * 9000)}` },
-      simulated: true,
-    };
-  }
-
-  // Inventory
-  if (path.includes('/inventory/items')) {
-    return {
-      ok: true,
-      data: [
-        { id: 'inv-1', sku: 'RM-BASMATI', name: 'Premium Basmati Rice', category: 'Grains', unit_symbol: 'kg', current_stock: 140, par_level: 50, reorder_quantity: 100, current_cost_paise: 11500, supplier_name: 'Dawat Rice Mills' },
-        { id: 'inv-2', sku: 'RM-PANEER', name: 'Fresh Malai Paneer', category: 'Dairy', unit_symbol: 'kg', current_stock: 18, par_level: 25, reorder_quantity: 30, current_cost_paise: 32000, supplier_name: 'Heritage Farms' },
-        { id: 'inv-3', sku: 'RM-CHICKEN', name: 'Boneless Chicken Breast', category: 'Poultry', unit_symbol: 'kg', current_stock: 42, par_level: 30, reorder_quantity: 40, current_cost_paise: 26000, supplier_name: 'Royal Poultry' },
-        { id: 'inv-4', sku: 'RM-BUTTER', name: 'Salted Amul Table Butter', category: 'Dairy', unit_symbol: 'kg', current_stock: 28, par_level: 15, reorder_quantity: 20, current_cost_paise: 48000, supplier_name: 'Gujarat Dairy' },
-        { id: 'inv-5', sku: 'RM-CREAM', name: 'Amul Fresh Cooking Cream', category: 'Dairy', unit_symbol: 'L', current_stock: 12, par_level: 20, reorder_quantity: 15, current_cost_paise: 21000, supplier_name: 'Gujarat Dairy' },
-        { id: 'inv-6', sku: 'RM-SPICE', name: 'Royal Shahi Garam Masala', category: 'Spices', unit_symbol: 'kg', current_stock: 8, par_level: 10, reorder_quantity: 10, current_cost_paise: 85000, supplier_name: 'Old Delhi Spice Co.' },
-      ],
-      simulated: true,
-    };
-  }
-
-  // Staff
-  if (path.includes('/staff/employees')) {
-    return {
-      ok: true,
-      data: [
-        { id: 's1', employee_code: 'EMP-001', full_name: 'Rajiv Singhania', role_name: 'General Manager', status: 'clocked_in', clock_in_time: '10:00 AM', phone: '+91 98765 43210', base_salary_paise: 8500000 },
-        { id: 's2', employee_code: 'EMP-002', full_name: 'Pooja Verma', role_name: 'Cashier', status: 'clocked_in', clock_in_time: '11:30 AM', phone: '+91 98765 43211', base_salary_paise: 3200000 },
-        { id: 's3', employee_code: 'EMP-003', full_name: 'Chef Sanjeev', role_name: 'Head Chef', status: 'clocked_in', clock_in_time: '09:00 AM', phone: '+91 98765 43212', base_salary_paise: 7500000 },
-        { id: 's4', employee_code: 'EMP-004', full_name: 'Rahul Sharma', role_name: 'Captain', status: 'clocked_out', phone: '+91 98765 43213', base_salary_paise: 2800000 },
-        { id: 's5', employee_code: 'EMP-005', full_name: 'Rohan Mehra', role_name: 'Bartender', status: 'clocked_in', clock_in_time: '04:00 PM', phone: '+91 98765 43214', base_salary_paise: 3000000 },
-      ],
-      simulated: true,
-    };
-  }
-
-  // Hotel
-  if (path.includes('/hotel/rooms')) {
-    return {
-      ok: true,
-      data: [
-        { id: 'r101', room_number: '101', room_type: 'deluxe', status: 'occupied', housekeeping_status: 'clean', guest_name: 'Vikramaditya Roy', base_tariff_paise: 650000, current_balance_paise: 145000 },
-        { id: 'r102', room_number: '102', room_type: 'deluxe', status: 'vacant', housekeeping_status: 'clean', base_tariff_paise: 650000, current_balance_paise: 0 },
-        { id: 'r103', room_number: '103', room_type: 'deluxe', status: 'reserved', housekeeping_status: 'clean', base_tariff_paise: 650000, current_balance_paise: 0 },
-        { id: 'r201', room_number: '201', room_type: 'suite', status: 'occupied', housekeeping_status: 'inspected', guest_name: 'Ananya Sharma', base_tariff_paise: 1200000, current_balance_paise: 280000 },
-        { id: 'r202', room_number: '202', room_type: 'suite', status: 'vacant', housekeeping_status: 'dirty', base_tariff_paise: 1200000, current_balance_paise: 0 },
-        { id: 'r301', room_number: '301', room_type: 'suite', status: 'occupied', housekeeping_status: 'clean', guest_name: 'Dr. Farhan Qureshi', base_tariff_paise: 2500000, current_balance_paise: 720000 },
-      ],
-      simulated: true,
-    };
-  }
-
-  // Alerts
-  if (path.includes('/alerts/active')) {
-    return {
-      ok: true,
-      data: [
-        { id: 'alt-1', title: 'Low Stock Alert', message: 'Fresh Malai Paneer below reorder level (18 kg < 25 kg)', severity: 'warning', timestamp: '12:30 PM', resolved: false, category: 'inventory' },
-        { id: 'alt-2', title: 'Discount Approval Required', message: 'Table T4 requested 20% bill discount. Approved by Rajiv Singhania.', severity: 'info', timestamp: '01:15 PM', resolved: false, category: 'billing' },
-        { id: 'alt-3', title: 'SHA-256 Audit Seal', message: 'Linear cryptographic ledger verified. 142 chained blocks intact.', severity: 'info', timestamp: '01:00 PM', resolved: false, category: 'security' },
-      ],
-      simulated: true,
-    };
-  }
-
-  // Menu Engineering Report
-  if (path.includes('/reports/menu-engineering')) {
-    return {
-      ok: true,
-      data: {
-        items: [
-          { id: 'm1', name: 'Butter Chicken Grand Trunk', units_sold: 214, selling_price: 54000, food_cost: 16200, margin_paise: 37800, popularity: 'high', profitability: 'high', quadrant: 'star' },
-          { id: 'm2', name: 'Tandoori Garlic Butter Naan', units_sold: 480, selling_price: 11000, food_cost: 2200, margin_paise: 8800, popularity: 'high', profitability: 'high', quadrant: 'star' },
-          { id: 'm3', name: 'Dal Makhani Bukhara', units_sold: 310, selling_price: 39000, food_cost: 18500, margin_paise: 20500, popularity: 'high', profitability: 'low', quadrant: 'plowhorse' },
-          { id: 'm4', name: 'Seekh Kebab Gilafi', units_sold: 68, selling_price: 49000, food_cost: 14500, margin_paise: 34500, popularity: 'low', profitability: 'high', quadrant: 'puzzle' },
-          { id: 'm5', name: 'Dahi Ke Kebab', units_sold: 32, selling_price: 34000, food_cost: 19000, margin_paise: 15000, popularity: 'low', profitability: 'low', quadrant: 'dog' },
-        ]
-      },
-      simulated: true,
-    };
-  }
-
-  // Aggregator Reconciliation
-  if (path.includes('/channels/payout-reconciliation')) {
-    return {
-      ok: true,
-      data: [
-        { id: 'agg-1', channel: 'Zomato', order_id: 'ZOM-9482', placed_at: '12:45 PM', items_summary: '2x Butter Chicken, 4x Garlic Naan', customer_name: 'Aditya S.', rider_name: 'Sunil K.', rider_phone: '+91 98765 00001', gross_amount: 152000, commission_amount: 27360, net_payout: 124640 },
-        { id: 'agg-2', channel: 'Swiggy', order_id: 'SWG-3190', placed_at: '01:15 PM', items_summary: '1x Dal Makhani, 2x Roti, 1x Lassi', customer_name: 'Neha R.', rider_name: 'Mahesh G.', rider_phone: '+91 98765 00002', gross_amount: 78000, commission_amount: 14040, net_payout: 63960 },
-      ],
-      simulated: true,
-    };
-  }
-
-  // Generic mutations
-  return {
-    ok: true,
-    data: { id: `sim-${Date.now()}`, status: 'success' },
-    simulated: true,
-  };
 }
 
 export const api = {
   // System Health
   health: {
     check: async () => {
-      if (isBrowserPublicDomain || (typeof window !== 'undefined' && window.location.protocol === 'https:' && API_BASE.startsWith('http:'))) {
-        return {
-          online: true,
-          isLocalServer: false,
-          databaseConnected: true,
-          coreActive: true,
-        };
-      }
-
       try {
-        const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(1500) });
+        const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
         if (res.ok) {
           const data = await res.json().catch(() => null);
+          _apiOnline = true;
           return {
             online: true,
             isLocalServer: true,
@@ -505,15 +127,9 @@ export const api = {
           };
         }
       } catch {
-        // Fallback to simulated cloud demo mode
+        _apiOnline = false;
       }
-
-      return {
-        online: true,
-        isLocalServer: false,
-        databaseConnected: true,
-        coreActive: true,
-      };
+      return { online: false, isLocalServer: false, databaseConnected: false, coreActive: false };
     },
   },
 
@@ -530,24 +146,6 @@ export const api = {
         if (res.data.user?.roles?.[0]?.outletId) {
           setActiveOutletId(res.data.user.roles[0].outletId);
         }
-      } else if (email && password) {
-        // Guaranteed demo login when backend is unreachable or database is unseeded
-        const isCashier = email.includes('cashier');
-        const simulatedToken = 'simulated_jwt_token_demo';
-        const simulatedUser = {
-          id: isCashier ? 'u2' : 'u1',
-          fullName: isCashier ? 'Pooja Verma (Cashier)' : 'Rajiv Singhania (General Manager)',
-          roleName: isCashier ? 'Cashier' : 'General Manager',
-          permissions: ['*'],
-          discountCapPercent: isCashier ? 10 : 100,
-        };
-        setAuthToken(simulatedToken);
-        setCurrentUser(simulatedUser);
-        return {
-          ok: true,
-          data: { token: simulatedToken, user: simulatedUser },
-          simulated: true,
-        };
       }
       return res;
     },
@@ -561,34 +159,15 @@ export const api = {
         setAuthToken(res.data.token);
         setCurrentUser(res.data.user);
         if (outletId) setActiveOutletId(outletId);
-      } else if (pin.length === 4) {
-        // Guaranteed fallback PIN login for all demo/cloud users
-        const isCashier = pin === '5678';
-        const isChef = pin === '9999';
-        const simulatedToken = 'simulated_jwt_token_demo';
-        const simulatedUser = {
-          id: isCashier ? 'u2' : (isChef ? 'u3' : 'u1'),
-          fullName: isCashier ? 'Pooja Verma (Cashier)' : (isChef ? 'Chef Sanjeev (Head Chef)' : 'Rajiv Singhania (General Manager)'),
-          roleName: isCashier ? 'Cashier' : (isChef ? 'Head Chef' : 'General Manager'),
-          permissions: ['*'],
-          discountCapPercent: isCashier ? 10 : 100,
-        };
-        setAuthToken(simulatedToken);
-        setCurrentUser(simulatedUser);
-        return {
-          ok: true,
-          data: { token: simulatedToken, user: simulatedUser },
-          simulated: true,
-        };
+        else if (res.data.user?.roles?.[0]?.outletId) {
+          setActiveOutletId(res.data.user.roles[0].outletId);
+        }
       }
       return res;
     },
 
-    me: async () => {
-      return apiRequest('/api/v1/auth/me');
-    },
+    me: async () => apiRequest('/api/v1/auth/me'),
 
-    // Real Server-Side Manager Approval
     approve: async (approverPin: string, actionType: string, reason: string, referenceId?: string) => {
       return apiRequest('/api/v1/auth/approve', {
         method: 'POST',
@@ -601,19 +180,13 @@ export const api = {
       });
     },
 
-    logout: () => {
-      removeAuthToken();
-    },
+    logout: () => { removeAuthToken(); },
   },
 
   // Floor & Tables
   floor: {
-    getTables: async () => {
-      return apiRequest<any[]>('/api/v1/floor/tables');
-    },
-    getAreas: async () => {
-      return apiRequest<any[]>('/api/v1/floor/sections');
-    },
+    getTables: async () => apiRequest<any[]>('/api/v1/floor/tables'),
+    getAreas: async () => apiRequest<any[]>('/api/v1/floor/sections'),
     updateTableStatus: async (tableId: string, status: string, covers?: number) => {
       return apiRequest(`/api/v1/floor/tables/${tableId}/status`, {
         method: 'PATCH',
@@ -624,12 +197,8 @@ export const api = {
 
   // Menu Catalog
   menu: {
-    getFullMenu: async () => {
-      return apiRequest<any[]>('/api/v1/menu');
-    },
-    getCategories: async () => {
-      return apiRequest<any[]>('/api/v1/menu/categories');
-    },
+    getFullMenu: async () => apiRequest<any[]>('/api/v1/menu'),
+    getCategories: async () => apiRequest<any[]>('/api/v1/menu/categories'),
     toggleAvailability: async (menuItemId: string, isAvailable: boolean) => {
       return apiRequest(`/api/v1/menu/items/${menuItemId}/availability`, {
         method: 'PATCH',
@@ -638,11 +207,9 @@ export const api = {
     },
   },
 
-  // Orders & KOT Tickets
+  // Orders & KOT
   orders: {
-    get: async (orderId: string) => {
-      return apiRequest<any>(`/api/v1/orders/${orderId}`);
-    },
+    get: async (orderId: string) => apiRequest<any>(`/api/v1/orders/${orderId}`),
     create: async (payload: { order_type: string; table_id?: string; covers?: number; customer_id?: string }) => {
       return apiRequest('/api/v1/orders/create', {
         method: 'POST',
@@ -656,9 +223,7 @@ export const api = {
       });
     },
     sendKot: async (orderId: string) => {
-      return apiRequest(`/api/v1/orders/${orderId}/kot`, {
-        method: 'POST',
-      });
+      return apiRequest(`/api/v1/orders/${orderId}/kot`, { method: 'POST' });
     },
     voidItem: async (orderId: string, orderItemId: string, reason: string, approvalId?: string) => {
       return apiRequest(`/api/v1/orders/${orderId}/void-item`, {
@@ -702,9 +267,8 @@ export const api = {
     },
   },
 
-  // Billing (Engineered with Native C++ Business Engine)
+  // Billing (C++ Core Engine)
   billing: {
-    // Calls C++ price_bill op
     calculate: async (payload: {
       items: Array<{ quantity: number; unit_price_paise: number; tax_rate_percent?: number }>;
       bill_discount_percent?: number;
@@ -719,8 +283,6 @@ export const api = {
         body: JSON.stringify(payload),
       });
     },
-
-    // Calls C++ split_bill op (Hamilton Largest Remainder Method)
     split: async (payload: {
       bill: { total_paise: number; subtotal_paise?: number };
       split_type: 'equal' | 'by_amount' | 'by_item';
@@ -732,8 +294,16 @@ export const api = {
         body: JSON.stringify(payload),
       });
     },
-
-    // Issues sequential GST tax invoice
+    finalize: async (orderId: string, options?: {
+      service_charge_enabled?: boolean;
+      bill_discount_percent?: number;
+      tip_paise?: number;
+    }) => {
+      return apiRequest('/api/v1/billing/invoice', {
+        method: 'POST',
+        body: JSON.stringify({ order_id: orderId, ...options }),
+      });
+    },
     invoice: async (orderId: string, seriesCode = 'T1', invoiceType = 'tax_invoice') => {
       return apiRequest('/api/v1/billing/invoice', {
         method: 'POST',
@@ -765,7 +335,7 @@ export const api = {
     },
   },
 
-  // Register Shifts & Cash Management
+  // Register Shifts & Cash
   shifts: {
     open: async (openingFloatPaise: number, terminalId?: string) => {
       return apiRequest('/api/v1/shifts/open', {
@@ -809,12 +379,8 @@ export const api = {
 
   // Inventory & Purchasing
   inventory: {
-    getItems: async () => {
-      return apiRequest<any[]>('/api/v1/inventory/items');
-    },
-    getInventory: async () => {
-      return apiRequest<any[]>('/api/v1/inventory/items');
-    },
+    getItems: async () => apiRequest<any[]>('/api/v1/inventory/items'),
+    getInventory: async () => apiRequest<any[]>('/api/v1/inventory/items'),
     recordStocktake: async (items: Array<{ material_id: string; physical_stock: number }>) => {
       return apiRequest('/api/v1/inventory/stocktake', {
         method: 'POST',
@@ -839,12 +405,9 @@ export const api = {
     },
   },
 
-  // Recipes & Theoretical Costing
+  // Recipes
   recipes: {
-    getRecipes: async () => {
-      return apiRequest<any[]>('/api/v1/recipes');
-    },
-    // Explodes recipe via C++ engine
+    getRecipes: async () => apiRequest<any[]>('/api/v1/recipes'),
     explode: async (orderedItems: any[], recipes: any[]) => {
       return apiRequest('/api/v1/recipes/explode', {
         method: 'POST',
@@ -855,12 +418,8 @@ export const api = {
 
   // Staff & Payroll
   staff: {
-    getEmployees: async () => {
-      return apiRequest<any[]>('/api/v1/staff/employees');
-    },
-    getStaff: async () => {
-      return apiRequest<any[]>('/api/v1/staff/employees');
-    },
+    getEmployees: async () => apiRequest<any[]>('/api/v1/staff/employees'),
+    getStaff: async () => apiRequest<any[]>('/api/v1/staff/employees'),
     clockIn: async (employeeId: string, workDate?: string) => {
       return apiRequest('/api/v1/staff/clock-in', {
         method: 'POST',
@@ -881,24 +440,16 @@ export const api = {
     },
   },
 
-  // Accounting & Financial Reports
+  // Accounting
   accounting: {
-    getTrialBalance: async () => {
-      return apiRequest('/api/v1/accounting/trial-balance');
-    },
-    getFlashPnl: async () => {
-      return apiRequest('/api/v1/accounting/flash-pnl');
-    },
-    getJournals: async () => {
-      return apiRequest('/api/v1/accounting/journals');
-    },
+    getTrialBalance: async () => apiRequest('/api/v1/accounting/trial-balance'),
+    getFlashPnl: async () => apiRequest('/api/v1/accounting/flash-pnl'),
+    getJournals: async () => apiRequest('/api/v1/accounting/journals'),
   },
 
-  // Hotel PMS Extension
+  // Hotel PMS
   hotel: {
-    getRooms: async () => {
-      return apiRequest<any[]>('/api/v1/hotel/rooms');
-    },
+    getRooms: async () => apiRequest<any[]>('/api/v1/hotel/rooms'),
     checkIn: async (roomId: string, guestId: string, creditLimitPaise = 5000000) => {
       return apiRequest('/api/v1/hotel/checkin', {
         method: 'POST',
@@ -921,18 +472,14 @@ export const api = {
 
   // Delivery Aggregators & Channels
   channels: {
-    getChannels: async () => {
-      return apiRequest<any[]>('/api/v1/channels/list');
-    },
+    getChannels: async () => apiRequest<any[]>('/api/v1/channels/list'),
     simulateOrder: async (payload: any) => {
       return apiRequest('/api/v1/channels/simulate-order', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
     },
-    getPayoutReconciliation: async () => {
-      return apiRequest<any[]>('/api/v1/channels/payout-reconciliation');
-    },
+    getPayoutReconciliation: async () => apiRequest<any[]>('/api/v1/channels/payout-reconciliation'),
   },
 
   // Operational Reports
@@ -941,85 +488,50 @@ export const api = {
       const q = businessDate ? `?business_date=${businessDate}` : '';
       return apiRequest(`/api/v1/reports/daily-flash${q}`);
     },
-    getHourlyMatrix: async () => {
-      return apiRequest('/api/v1/reports/hourly-matrix');
-    },
-    getMenuEngineering: async () => {
-      return apiRequest('/api/v1/reports/menu-engineering');
-    },
-    getLeakage: async () => {
-      return apiRequest('/api/v1/reports/leakage');
-    },
+    getHourlyMatrix: async () => apiRequest('/api/v1/reports/hourly-matrix'),
+    getMenuEngineering: async () => apiRequest('/api/v1/reports/menu-engineering'),
+    getLeakage: async () => apiRequest('/api/v1/reports/leakage'),
   },
 
   // System Alerts
   alerts: {
-    getActive: async () => {
-      return apiRequest<any[]>('/api/v1/alerts/active');
-    },
+    getActive: async () => apiRequest<any[]>('/api/v1/alerts/active'),
     acknowledge: async (alertId: string) => {
-      return apiRequest(`/api/v1/alerts/${alertId}/acknowledge`, {
-        method: 'POST',
-      });
+      return apiRequest(`/api/v1/alerts/${alertId}/acknowledge`, { method: 'POST' });
     },
   },
 
-  // Cryptographic Audit Trail
+  // Audit Trail
   audit: {
-    getLogs: async (limit = 50) => {
-      return apiRequest<any[]>(`/api/v1/audit/logs?limit=${limit}`);
-    },
-    verifyChain: async () => {
-      return apiRequest<{ valid: boolean; inspected: number }>('/api/v1/audit/verify-chain');
-    },
+    getLogs: async (limit = 50) => apiRequest<any[]>(`/api/v1/audit/logs?limit=${limit}`),
+    verifyChain: async () => apiRequest<{ valid: boolean; inspected: number }>('/api/v1/audit/verify-chain'),
+  },
+
+  // Customers & Loyalty
+  customers: {
+    lookup: async (phone: string) => apiRequest(`/api/v1/customers/lookup?phone=${encodeURIComponent(phone)}`),
+    getProfile: async (customerId: string) => apiRequest(`/api/v1/customers/${customerId}`),
   },
 
   // Realtime Server-Sent Events (SSE)
   realtime: {
     connect: (onEvent: (event: any) => void, onError?: (err: any) => void): (() => void) => {
-      if (isBrowserPublicDomain || (typeof window !== 'undefined' && window.location.protocol === 'https:' && API_BASE.startsWith('http:'))) {
-        return () => {};
-      }
       try {
         const outletId = getActiveOutletId() || 'default';
         const url = `${API_BASE}/api/v1/realtime/stream?outlet_id=${outletId}`;
         const eventSource = new EventSource(url);
 
         eventSource.onmessage = (e) => {
-          try {
-            const data = JSON.parse(e.data);
-            onEvent(data);
-          } catch {}
+          try { onEvent(JSON.parse(e.data)); } catch {}
         };
+        for (const evtName of ['KOT_CREATED', 'KOT_BUMPED', 'TABLE_UPDATED', 'ORDER_UPDATED']) {
+          eventSource.addEventListener(evtName, (e: any) => {
+            try { onEvent({ type: evtName, ...JSON.parse(e.data) }); } catch {}
+          });
+        }
+        eventSource.onerror = (err) => { if (onError) onError(err); };
 
-        eventSource.addEventListener('KOT_CREATED', (e: any) => {
-          try {
-            const data = JSON.parse(e.data);
-            onEvent({ type: 'KOT_CREATED', ...data });
-          } catch {}
-        });
-
-        eventSource.addEventListener('KOT_BUMPED', (e: any) => {
-          try {
-            const data = JSON.parse(e.data);
-            onEvent({ type: 'KOT_BUMPED', ...data });
-          } catch {}
-        });
-
-        eventSource.addEventListener('TABLE_UPDATED', (e: any) => {
-          try {
-            const data = JSON.parse(e.data);
-            onEvent({ type: 'TABLE_UPDATED', ...data });
-          } catch {}
-        });
-
-        eventSource.onerror = (err) => {
-          if (onError) onError(err);
-        };
-
-        return () => {
-          eventSource.close();
-        };
+        return () => { eventSource.close(); };
       } catch {
         return () => {};
       }
@@ -1027,7 +539,7 @@ export const api = {
   },
 };
 
-// Legacy exports for compatibility
+// Legacy exports
 export const checkBackendHealth = api.health.check;
 export const fetchLiveTables = api.floor.getTables;
 export const fetchLiveMenu = api.menu.getFullMenu;

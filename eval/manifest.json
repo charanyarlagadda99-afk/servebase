@@ -1,0 +1,29 @@
+{
+  "scenarios": [
+    "w01-dinein-lifecycle",
+    "w02-void-after-kot",
+    "w03-discount-approval",
+    "w04-split-bill",
+    "w05-table-operations",
+    "w06-shift-cash",
+    "w07-day-close",
+    "w08-procurement",
+    "w09-people-payroll",
+    "w10-hotel-guest-lifecycle",
+    "w11-aggregator-orders",
+    "w12-customers-loyalty",
+    "w13-offline-sync",
+    "w14-permissions",
+    "w15-multi-outlet-isolation",
+    "w16-report-consistency",
+    "w17-realtime-sync",
+    "w18-durability-restart"
+  ],
+  "gates": [
+    "g1-no-fake",
+    "g2-connectivity",
+    "g3-visual",
+    "g4-parity",
+    "g5-stability"
+  ]
+}

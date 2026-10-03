@@ -8,6 +8,7 @@
     "test:api": "cd api && npm test",
     "test:web": "cd web && npm test",
     "build:web": "cd web && npm run build",
-    "verify": "npm run test:core && npm run test:api && npm run build:web && npm run test:web"
+    "verify": "npm run test:core && npm run test:api && npm run build:web && npm run test:web",
+    "score": "npx tsx eval/score.ts"
   }
 }

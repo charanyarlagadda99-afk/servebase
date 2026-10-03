@@ -60,7 +60,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, isBackendO
         setError(res.error?.message || 'Invalid terminal PIN. Use 1234 (Manager) or 5678 (Cashier).');
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication error. Please use demo PIN 1234 or 5678.');
+      setError(err.message || 'Authentication failed. Check that the API server is running.');
     } finally {
       setLoading(false);
     }
@@ -150,12 +150,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, isBackendO
         {isLocalServer ? (
           <div className="mt-4 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-center gap-2 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Local Enterprise Server Connected (Port 3000: Fastify + C++ Engine + PostgreSQL 16)</span>
+            <span>API Server Connected (Fastify + C++ Engine + PostgreSQL)</span>
           </div>
         ) : (
-          <div className="mt-4 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-center gap-2 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-            <span>Public Interactive Demo Mode Active — Enter PIN 1234 or use Quick Login below</span>
+          <div className="mt-4 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center justify-center gap-2 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
+            <span>API server not detected. Start the backend to log in.</span>
           </div>
         )}
       </div>
@@ -300,10 +300,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, isBackendO
           </form>
         )}
 
-        {/* Demo Credential Shortcuts */}
+        {/* Quick Login Shortcuts */}
         <div className="mt-6 pt-5 border-t border-slate-800/80">
           <div className="text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2 text-center">
-            One-Tap Quick Login (Demo Access)
+            Quick Terminal Login
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <button

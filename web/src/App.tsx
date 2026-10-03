@@ -14,7 +14,7 @@ import {
   checkBackendHealth, 
   isAuthenticated, 
   getCurrentUser, 
-  getSimulatedFallback,
+  isApiOnline,
   API_BASE 
 } from './api/client';
 import { 
@@ -59,9 +59,9 @@ export const App: React.FC = () => {
       ]);
 
       // 1. Tables (POS floor plan)
-      const rawTables = (tablesRes.ok && Array.isArray(tablesRes.data) && tablesRes.data.length > 0)
+      const rawTables = (tablesRes.ok && Array.isArray(tablesRes.data))
         ? tablesRes.data
-        : (getSimulatedFallback('/floor/tables').data || []);
+        : [];
 
       setTables(rawTables.map((t: any) => ({
         id: t.id,
@@ -76,9 +76,9 @@ export const App: React.FC = () => {
       })));
 
       // 2. Menu Catalog
-      const rawMenu = (menuRes.ok && Array.isArray(menuRes.data) && menuRes.data.length > 0)
+      const rawMenu = (menuRes.ok && Array.isArray(menuRes.data))
         ? menuRes.data
-        : (getSimulatedFallback('/menu').data || []);
+        : [];
 
       setMenu(rawMenu.map((m: any) => ({
         id: m.id,
@@ -93,9 +93,9 @@ export const App: React.FC = () => {
       })));
 
       // 3. Kitchen Tickets (KDS)
-      const rawTickets = (ticketsRes.ok && Array.isArray(ticketsRes.data) && ticketsRes.data.length > 0)
+      const rawTickets = (ticketsRes.ok && Array.isArray(ticketsRes.data))
         ? ticketsRes.data
-        : (getSimulatedFallback('/kitchen/queue').data || []);
+        : [];
 
       setTickets(rawTickets.map((tk: any) => ({
         id: tk.id || tk.kot_id,
@@ -118,9 +118,9 @@ export const App: React.FC = () => {
       })));
 
       // 4. Inventory Raw Materials
-      const rawInventory = (inventoryRes.ok && Array.isArray(inventoryRes.data) && inventoryRes.data.length > 0)
+      const rawInventory = (inventoryRes.ok && Array.isArray(inventoryRes.data))
         ? inventoryRes.data
-        : (getSimulatedFallback('/inventory/items').data || []);
+        : [];
 
       setInventory(rawInventory.map((inv: any) => ({
         id: inv.id || inv.raw_material_id,
@@ -136,9 +136,9 @@ export const App: React.FC = () => {
       })));
 
       // 5. Staff Roster & Payroll
-      const rawStaff = (staffRes.ok && Array.isArray(staffRes.data) && staffRes.data.length > 0)
+      const rawStaff = (staffRes.ok && Array.isArray(staffRes.data))
         ? staffRes.data
-        : (getSimulatedFallback('/staff/employees').data || []);
+        : [];
 
       setStaff(rawStaff.map((s: any) => ({
         id: s.id,
@@ -152,9 +152,9 @@ export const App: React.FC = () => {
       })));
 
       // 6. Hotel PMS Rooms & Folios
-      const rawRooms = (roomsRes.ok && Array.isArray(roomsRes.data) && roomsRes.data.length > 0)
+      const rawRooms = (roomsRes.ok && Array.isArray(roomsRes.data))
         ? roomsRes.data
-        : (getSimulatedFallback('/hotel/rooms').data || []);
+        : [];
 
       setRooms(rawRooms.map((r: any) => ({
         id: r.id,
@@ -170,9 +170,9 @@ export const App: React.FC = () => {
       })));
 
       // 7. System Alerts
-      const rawAlerts = (alertsRes.ok && Array.isArray(alertsRes.data) && alertsRes.data.length > 0)
+      const rawAlerts = (alertsRes.ok && Array.isArray(alertsRes.data))
         ? alertsRes.data
-        : (getSimulatedFallback('/alerts/active').data || []);
+        : [];
 
       setAlerts(rawAlerts.map((a: any) => ({
         id: a.id,
@@ -589,22 +589,19 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FBF9F6]">
-      {/* PUBLIC PREVIEW / CLOUD DEMO BAR */}
-      {!isLocalServer && (
-        <div className="bg-slate-900 border-b border-amber-500/30 text-amber-200 px-4 py-1.5 text-xs font-medium flex items-center justify-between shadow-xs">
+      {/* OFFLINE WARNING — shown only when API is unreachable */}
+      {!isBackendOnline && (
+        <div className="bg-red-900 border-b border-red-500/30 text-red-200 px-4 py-1.5 text-xs font-medium flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span>ServeBase Public Demo Mode (Interactive In-Browser Engine) • Full C++ calculations simulated • POS, KDS, Splits & PMS ready</span>
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+            <span>API server unreachable. Start the backend on {API_BASE} to load live data.</span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-slate-400 font-mono hidden md:inline">Standalone Cloud Deployment</span>
-            <button 
-              onClick={() => checkBackendHealth().then(r => { setIsBackendOnline(r.online); setIsLocalServer(r.isLocalServer); })}
-              className="text-[11px] text-amber-400 hover:text-amber-300 underline font-semibold"
-            >
-              Check Local Server
-            </button>
-          </div>
+          <button 
+            onClick={() => checkBackendHealth().then(r => { setIsBackendOnline(r.online); setIsLocalServer(r.isLocalServer); })}
+            className="text-[11px] text-red-300 hover:text-red-200 underline font-semibold"
+          >
+            Retry
+          </button>
         </div>
       )}
 

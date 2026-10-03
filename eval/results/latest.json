@@ -1,0 +1,135 @@
+{
+  "scenarios": {
+    "w01-dinein-lifecycle": {
+      "passed": 10,
+      "failed": 5,
+      "failures": [
+        "W1.04: Sending KOT generates sequential ticket",
+        "W1.05: Kitchen bump marks KOT completed",
+        "W1.11: Stock deducted by recipe in stock_ledger",
+        "W1.12: Balanced journal entries posted in general ledger",
+        "W1.13: Shift expected cash updated on cash payment"
+      ]
+    },
+    "w02-void-after-kot": {
+      "passed": 0,
+      "failed": 4,
+      "failures": [
+        "W2.01: Void after KOT without approval is rejected",
+        "W2.02: Wrong manager PIN rejected for void approval",
+        "W2.03: Correct manager PIN creates valid approval record",
+        "W2.04: Void after KOT succeeds with valid manager approval"
+      ]
+    },
+    "w03-discount-approval": {
+      "passed": 1,
+      "failed": 1,
+      "failures": [
+        "W3.02: Discount approval recorded by manager PIN"
+      ]
+    },
+    "w04-split-bill": {
+      "passed": 2,
+      "failed": 0,
+      "failures": []
+    },
+    "w05-table-operations": {
+      "passed": 0,
+      "failed": 2,
+      "failures": [
+        "W5.01: Acquire table lock returns locked: true",
+        "W5.02: Release table lock returns unlocked: true"
+      ]
+    },
+    "w06-shift-cash": {
+      "passed": 3,
+      "failed": 0,
+      "failures": []
+    },
+    "w07-day-close": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        "W7.01: Day close precheck inspects unsettled orders and open shifts"
+      ]
+    },
+    "w08-procurement": {
+      "passed": 2,
+      "failed": 0,
+      "failures": []
+    },
+    "w09-people-payroll": {
+      "passed": 0,
+      "failed": 2,
+      "failures": [
+        "W9.01: Staff clock-in logs attendance record",
+        "W9.02: Staff clock-out updates shift hours"
+      ]
+    },
+    "w10-hotel-guest-lifecycle": {
+      "passed": 3,
+      "failed": 0,
+      "failures": []
+    },
+    "w11-aggregator-orders": {
+      "passed": 1,
+      "failed": 1,
+      "failures": [
+        "W11.01: Aggregator webhook creates order and kitchen ticket"
+      ]
+    },
+    "w12-customers-loyalty": {
+      "passed": 2,
+      "failed": 0,
+      "failures": []
+    },
+    "w13-offline-sync": {
+      "passed": 1,
+      "failed": 0,
+      "failures": []
+    },
+    "w14-permissions": {
+      "passed": 5,
+      "failed": 2,
+      "failures": [
+        "W14.05: Cashier token rejected from day close execute (403)",
+        "W14.06: Cashier token rejected from manager approval endpoint (403)"
+      ]
+    },
+    "w15-multi-outlet-isolation": {
+      "passed": 1,
+      "failed": 0,
+      "failures": []
+    },
+    "w16-report-consistency": {
+      "passed": 0,
+      "failed": 1,
+      "failures": [
+        "W16.01: Daily flash report returns structured operational financials"
+      ]
+    },
+    "w17-realtime-sync": {
+      "passed": 1,
+      "failed": 0,
+      "failures": []
+    },
+    "w18-durability-restart": {
+      "passed": 1,
+      "failed": 0,
+      "failures": []
+    }
+  },
+  "gates": {
+    "g1-no-fake": {
+      "passed": false,
+      "failures": [
+        "Potential business math (tax calc) in browser found in App.tsx",
+        "Potential business math (tax calc) in browser found in views\\PosView.tsx",
+        "Potential business math (tax calc) in browser found in views\\StaffView.tsx"
+      ]
+    }
+  },
+  "totalPassed": 33,
+  "totalFailed": 19,
+  "scorePercent": 63
+}
